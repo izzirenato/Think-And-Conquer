@@ -299,6 +299,7 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
         colorButton.setContentAreaFilled(false);
 
         colorButton.addActionListener(_ -> showColorPopup(colorButton, playerIndex));
+        colorButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
         return colorButton;
     }

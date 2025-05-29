@@ -126,12 +126,12 @@ public class StatsPanel extends JPanel
             }
             
             addStatsLabel(playerPanel, String.format("Points: %d/%d", player.getPoints(), _gameManager.getMaxPoints()), Color.WHITE);
-            addStatsLabel(playerPanel, String.format("Score: %d", player.getScore()), Color.WHITE);
             addStatsLabel(playerPanel, String.format("Correct: %d | Wrong: %d", player.getCorrectAnswers(), player.getWrongAnswers()), Color.WHITE);
             
             // Category performance ratios
             addStatsLabel(playerPanel, "Category Performance:", Color.YELLOW);
-            for (Question.Category category : Question.Category.values()) {
+            for (Question.Category category : Question.Category.values()) 
+            {
                 int correct = player.getCorrectAnswersByCategory().get(category);
                 int wrong = player.getWrongAnswersByCategory().get(category);
                 int total = correct + wrong;
