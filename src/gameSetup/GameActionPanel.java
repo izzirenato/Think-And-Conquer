@@ -163,6 +163,9 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     {
         if (_gameManager != null) 
         {
+            _mapPanel.getInteractionHandler().clearSelection();
+            hideActionButtons();
+
             _gameManager.nextTurn();
             updatePlayerInfo();
         }
@@ -191,8 +194,22 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         _actionOverlay.setBorder(BorderFactory.createEmptyBorder(20, 40, 20, 40));
         _actionOverlay.setVisible(false);
         
+        // REMOVE this ComponentListener - it causes the infinite loop
+        /*
+        _actionOverlay.addComponentListener(new ComponentAdapter() 
+        {
+            @Override
+            public void componentResized(ComponentEvent e) 
+            {
+                SwingUtilities.invokeLater(() -> 
+                {
+                    scaleOverlayComponents(_actionOverlay.getWidth(), _actionOverlay.getHeight());
+                });
+            }
+        });
+        */
+        
         // create a blocking panel that will prevent clicks from passing through
-        // didn't use GlassPane because I was having issues with mouse events
         _blockingPanel = new JPanel();
         _blockingPanel.setOpaque(false);
         _blockingPanel.setVisible(false);
@@ -225,30 +242,99 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     }
 
 
-    // repositions the overlay to be centered on the map panel (really useful if the StatsPanel is open)
-    private void repositionOverlay() 
+    // repositions the overlay to be centered on the map panel
+    public void repositionOverlay() 
     {
-        // Get MapPanel's position and dimensions relative to the frame
-        Point mapLocation = SwingUtilities.convertPoint(_mapPanel, 0, 0, _parentFrame.getContentPane());
+        if (_actionOverlay == null) {
+            return;
+        }
+        
+        if (!_actionOverlay.isVisible()) {
+            return;
+        }
+
+        // get MapPanel's position and dimensions relative to the layered pane
+        Point mapLocationInFrame = SwingUtilities.convertPoint(_mapPanel, 0, 0, _parentFrame.getLayeredPane());
         int mapWidth = _mapPanel.getWidth();
         int mapHeight = _mapPanel.getHeight();
         
-        // Calculate center of the map panel
-        int mapCenterX = mapLocation.x + mapWidth / 2;
-        int mapCenterY = mapLocation.y + mapHeight / 2;
+        // calculate overlay size based on MapPanel dimensions
+        int overlayWidth = Math.min(OVERLAY_WIDTH, (int)(mapWidth * 0.85));
+        int overlayHeight = Math.min(OVERLAY_HEIGHT, (int)(mapHeight * 0.75));
+
+        // ensure minimum sizes
+        final int finalOverlayWidth = Math.max(overlayWidth, 400);
+        final int finalOverlayHeight = Math.max(overlayHeight, 350);
         
-        // Shift the vertical position down by a small percentage of the map height
+        // calculate center of the mapPanel
+        int mapCenterX = mapLocationInFrame.x + mapWidth / 2;
+        int mapCenterY = mapLocationInFrame.y + mapHeight / 2;
+        
+        // shift the vertical position down slightly for better visibility
         float verticalShiftPercentage = 0.07f;
         int verticalShift = (int)(mapHeight * verticalShiftPercentage);
         
-        // Position overlay with its center at the map's center, but shifted down
-        int x = mapCenterX - OVERLAY_WIDTH / 2;
-        int y = mapCenterY - OVERLAY_HEIGHT / 2 + verticalShift;
+        // position overlay with its center at the map's center, shifted down
+        int x = mapCenterX - finalOverlayWidth / 2;
+        int y = mapCenterY - finalOverlayHeight / 2 + verticalShift;
         
-        _actionOverlay.setBounds(x, y, OVERLAY_WIDTH, OVERLAY_HEIGHT);
+        // ensure overlay stays within map bounds with padding
+        int mapLeft = mapLocationInFrame.x + 10;
+        int mapRight = mapLocationInFrame.x + mapWidth - 10;
+        int mapTop = mapLocationInFrame.y + 10;
+        int mapBottom = mapLocationInFrame.y + mapHeight - 10;
+        
+        x = Math.max(mapLeft, Math.min(x, mapRight - finalOverlayWidth));
+        y = Math.max(mapTop, Math.min(y, mapBottom - finalOverlayHeight));
+        
+        _actionOverlay.setBounds(x, y, finalOverlayWidth, finalOverlayHeight);
         
         // Make blocking panel cover the entire layered pane area
         _blockingPanel.setBounds(0, 0, _parentFrame.getWidth(), _parentFrame.getHeight());
+        
+        // REMOVE the SwingUtilities.invokeLater that causes the loop
+        // Just scale the components directly without triggering more events
+        scaleOverlayComponents(finalOverlayWidth, finalOverlayHeight);
+    }
+
+    
+    // scales the overlay components based on the new overlay size
+    private void scaleOverlayComponents(int overlayWidth, int overlayHeight) 
+    {
+        if (!isOverlayVisible()) return;
+
+        // Find all sliders in the overlay and resize them
+        scaleComponentsRecursively(_actionOverlay, overlayWidth, overlayHeight);
+    }
+
+    
+    // recursively scales components within the given container
+    private void scaleComponentsRecursively(Container container, int overlayWidth, int overlayHeight) 
+    {
+        for (Component comp : container.getComponents()) 
+        {
+            if (comp instanceof JSlider) 
+            {
+                JSlider slider = (JSlider) comp;
+                int newSliderWidth = Math.max(150, (int)(overlayWidth * 0.35));
+                slider.setPreferredSize(new Dimension(newSliderWidth, 40));
+            }
+            else if (comp instanceof JLabel) 
+            {
+                JLabel label = (JLabel) comp;
+                
+                String labelText = label.getText();
+                if (labelText != null && labelText.contains(":")) 
+                {
+                    float fontSize = Math.max(18f, Math.min(26f, overlayWidth / 25f));
+                    label.setFont(_buttonFont.deriveFont(fontSize));
+                }
+            }
+            else if (comp instanceof Container) 
+            {
+                scaleComponentsRecursively((Container) comp, overlayWidth, overlayHeight);
+            }
+        }
     }
 
 
@@ -336,7 +422,9 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     private void openOverlay(String title, boolean isMove) 
     {
         _selectedTerritory = _mapPanel.getSelectedTerritory();
-        if (_selectedTerritory == null) return;
+        if (_selectedTerritory == null) {
+            return;
+        }
         
         // Set the current action based on the overlay title
         if (title.contains("Deploy")) {_currentAction = "deploy";} 
@@ -349,14 +437,18 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         _deployButton.setVisible(false);
         _endTurnButton.setVisible(false);
         
+        // Build overlay contents first
         buildOverlayContents(title, isMove);
-        repositionOverlay();
         
-        _blockingPanel.setVisible(true);
+        // Show the overlay and position it
         _actionOverlay.setVisible(true);
+        _blockingPanel.setVisible(true);
+        
+        // Position the overlay (this will also scale components)
+        repositionOverlay();
     }
 
-    
+
     // hides the action overlay and restores action buttons
     private void hideOverlay() 
     {
@@ -589,7 +681,6 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         
         int moveButtonX = deployButtonX - buttonSpacing - moveButtonSize.width;
         int attackButtonX = deployButtonX + deployButtonSize.width + buttonSpacing;
-        
 
         _moveButton.setBounds
         (
@@ -624,6 +715,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
             endTurnButtonSize.height
         );
         
+        // Riposiziona l'overlay se è aperto
         repositionOverlay();
     }
 
@@ -644,5 +736,12 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         g2.setPaint(gp);
         g2.fillRect(0, 0, getWidth(), getHeight());
         g2.dispose();
+    }
+
+
+    // public method to check if the overlay is visible
+    public boolean isOverlayVisible() 
+    {
+        return _actionOverlay != null && _actionOverlay.isVisible();
     }
 }

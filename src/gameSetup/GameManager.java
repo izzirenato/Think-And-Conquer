@@ -70,6 +70,9 @@ public class GameManager
     // Game progression tracking
     private Map<Player, Set<String>> _playerControlledContinents = new HashMap<>();
 
+    // Stats panel
+    private StatsPanel _statsPanel;
+
 
     // ctor
     public GameManager(List<Player> players)
@@ -193,6 +196,8 @@ public class GameManager
         
         advanceToNextPlayer();
         assignReinforcements();
+        
+         _statsPanel.update();
     }
 
 
@@ -224,9 +229,10 @@ public class GameManager
         }
         _players.get(_currentPlayerIndex).removeTroops(troops);
         
-        
         _gameActionPanel.updateButtonsForSelectedTerritory(territory);
         _mapPanel.updateTerritory(territory);
+        
+        _statsPanel.update();
     }
 
 
@@ -417,7 +423,7 @@ public class GameManager
 
             QuizPanel quizPanel = new QuizPanel
             (
-                question,  // Ora questa variabile è final
+                question,
                 correct -> 
                 {
                     try 
@@ -433,7 +439,7 @@ public class GameManager
                         {
                             // Use resolveBattleResults for consistency - treat as perfect attacker score vs 0 defender score
                             resolveBattleResults(targetTerritory, attacker, defender, attackingTroops, new HashMap<>(), 100, 0);
-                            attacker.incrementCorrectAnswers(question.getCategory()); // Ora funziona!
+                            attacker.incrementCorrectAnswers(question.getCategory());
                         } 
                         else 
                         {
@@ -442,7 +448,7 @@ public class GameManager
                             {
                                 _sourceTerritory.markTroopAsActed(troopType);
                             }
-                            attacker.incrementWrongAnswers(question.getCategory()); // Usa il metodo con categoria
+                            attacker.incrementWrongAnswers(question.getCategory());
                         }
                         resetGameState();
                     } 
@@ -479,7 +485,8 @@ public class GameManager
                     _gameActionPanel.showEndTurnButton();
 
                     // Call the comprehensive battle resolution method
-                    resolveBattleResults(
+                    resolveBattleResults
+                    (
                         targetTerritory,
                         attacker, 
                         defender, 
@@ -499,6 +506,7 @@ public class GameManager
             mainContainer.add(duelPanel, "DUEL");
             cardLayout.show(mainContainer, "DUEL");
         }
+        _statsPanel.update();
 
         parentContainer.remove(_mapPanel);
         parentContainer.add(mainContainer);
@@ -1012,4 +1020,7 @@ public class GameManager
     public Player getCurrentPlayer() {return _players.get(_currentPlayerIndex);}
     public void setMapPanel(MapPanel mapPanel) {_mapPanel = Objects.requireNonNull(mapPanel);}
     public void setGameActionPanel(GameActionPanel panel) {_gameActionPanel = panel;}
+    public void setStatsPanel(StatsPanel statsPanel) {
+        _statsPanel = statsPanel;
+    }
 }

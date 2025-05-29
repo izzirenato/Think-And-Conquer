@@ -227,37 +227,21 @@ public class GameLauncher
             int w = content.getWidth(), h = content.getHeight();
             if (w <= 0 || h <= 0) 
             {
-                // it's a sort of wait and try again later
                 SwingUtilities.invokeLater(GameLauncher::resizeGamePanels);
                 return;
             }
-            Scalable control = findScalableComponent(content, "MapPanel", false);
-            if (control != null) {control.scale(w, 50);}
-            Scalable map = findScalableComponent(content, "MapPanel", true);
-            if (map != null) {map.scale(w, h - 50);}
-            content.revalidate(); content.repaint();
+            
+            GameActionPanel actionPanel = findComponentRecursive(GameActionPanel.class, content);
+            if (actionPanel != null) 
+            {
+                actionPanel.scale(w, 75);
+            }
+            
+            content.revalidate(); 
+            content.repaint();
         });
     }
 
-
-    // Recursively searches for a Scalable component by class name match
-    private static Scalable findScalableComponent(Container container, String className, boolean matchName) 
-    {
-        for (Component c : container.getComponents()) 
-        {
-            if (c instanceof Scalable) 
-            {
-                boolean nameMatch = c.getClass().getSimpleName().equalsIgnoreCase(className);
-                if ((matchName && nameMatch) || (!matchName && !nameMatch)) {return (Scalable) c;}
-            }
-            if (c instanceof Container) 
-            {
-                Scalable result = findScalableComponent((Container) c, className, matchName);
-                if (result != null) return result;
-            }
-        }
-        return null;
-    }
 
 
     // Makes the "Game" menu visible in the menu bar
@@ -280,11 +264,23 @@ public class GameLauncher
     private static void toggleStatsPanel() 
     {
         StatsPanel stats = findComponentRecursive(StatsPanel.class, _frame.getContentPane());
-        if (stats != null) stats.toggleVisibility();
+        if (stats != null) 
+        {
+            stats.toggleVisibility();
+            
+            GameActionPanel actionPanel = findComponentRecursive(GameActionPanel.class, _frame.getContentPane());
+            if (actionPanel != null && actionPanel.isOverlayVisible()) 
+            {
+                SwingUtilities.invokeLater(() -> 
+                {
+                    actionPanel.repositionOverlay();
+                });
+            }
+        }
     }
 
     
-    // Recursively finds a component of the given type (if I have to be honest I didn't really understand how does it work)
+    // Recursively finds a component of the given type (if I have to be honest I didn't really understand how does the Class<T> type work)
     private static <T> T findComponentRecursive(Class<T> type, Container container) 
     {
         for (Component c : container.getComponents()) 

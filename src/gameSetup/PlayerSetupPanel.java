@@ -3,6 +3,7 @@ package gameSetup;
 
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicProgressBarUI;
+import javax.swing.text.*;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import map.MapPanel;
+
 import troops.TroopManager;
 
 
@@ -177,6 +179,30 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
             _playerNames[i] = new JTextField("Player " + (i + 1), 12);
             _playerNames[i].setFont(_buttonFont);
             _playerNames[i].setPreferredSize(new Dimension(150, 50));
+
+            // this part of the code limits the player name length to 15 characters
+            ((AbstractDocument) _playerNames[i].getDocument()).setDocumentFilter(new DocumentFilter() 
+            {
+                @Override
+                public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException 
+                {
+                    String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+                    String newText = currentText.substring(0, offset) + text + currentText.substring(offset + length);
+                    
+                    if (newText.length() <= 15) 
+                    {
+                        super.replace(fb, offset, length, text, attrs);
+                    }
+                }
+
+                @Override
+                public void insertString(FilterBypass fb, int offset, String text, AttributeSet attr) throws BadLocationException {
+                    if (fb.getDocument().getLength() + text.length() <= 15) 
+                    {
+                        super.insertString(fb, offset, text, attr);
+                    }
+                }
+            });
 
             _playerNames[i].setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(UIStyleUtils.BUTTON_COLOR, 2, true),
@@ -382,7 +408,9 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
         return true;
     }
 
-    private void startGame()
+
+    // public because it could be started from the GameOverPanel
+    public void startGame()
     {
         // create custom loading screen
         JPanel loadingPanel = new JPanel(new GridBagLayout())
@@ -471,6 +499,7 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
             private MapPanel _mapPanel;
             private GameActionPanel _gameActionPanel;
             private GameManager _gameManager;
+            private StatsPanel _statsPanel;
 
             @Override
             protected Void doInBackground() throws Exception
@@ -491,6 +520,8 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
                 // create a new game manager
                 publish(10);
                 _gameManager = new GameManager(players);
+                _statsPanel = new StatsPanel(_gameManager);
+                _gameManager.setStatsPanel(_statsPanel);
                 Thread.sleep(200);
 
                 // loading map
@@ -542,7 +573,6 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
             {
                 try 
                 {
-                    // gets the SwingWorker result
                     get();      
                     SwingUtilities.invokeLater(() -> 
                     {
@@ -551,17 +581,30 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
                             _parentFrame.getContentPane().removeAll();
                             _parentFrame.getContentPane().setLayout(new BorderLayout());
                             
-                            if (_mapPanel != null && _gameActionPanel != null) 
+                            if (_mapPanel != null && _gameActionPanel != null && _statsPanel != null) 
                             {
+                                // Clear any existing components first
+                                _parentFrame.getContentPane().removeAll();
+                                
+                                // Add components in correct order
                                 _parentFrame.getContentPane().add(_mapPanel, BorderLayout.CENTER);
                                 _parentFrame.getContentPane().add(_gameActionPanel, BorderLayout.SOUTH);
-
-                                StatsPanel statsPanel = new StatsPanel(_gameManager);
-                                _parentFrame.getContentPane().add(statsPanel, BorderLayout.EAST);
+                                _parentFrame.getContentPane().add(_statsPanel, BorderLayout.EAST);
+                                
+                                // Set initial stats panel visibility
+                                _statsPanel.setVisible(false);
+                                
                                 GameLauncher.showGameMenu();
                                 
-                                _parentFrame.revalidate();
-                                _parentFrame.repaint();
+                                // Force complete refresh
+                                _parentFrame.getContentPane().revalidate();
+                                _parentFrame.getContentPane().repaint();
+                                
+                                System.out.println("Game layout setup completed successfully");
+                            } 
+                            else 
+                            {
+                                System.err.println("ERROR: One or more panels are null!");
                             }
                         } 
                         catch (Exception e) {e.printStackTrace();}
@@ -570,7 +613,7 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
                 catch (Exception e) 
                 {
                     e.printStackTrace();
-        
+
                     // gets back to the splash screen
                     _parentFrame.getContentPane().removeAll();
                     SplashScreen splashScreen = new SplashScreen(_parentFrame);
@@ -601,10 +644,40 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
         }
     }
 
+
     // sets the size of the panel
     public void scale(int width, int height)
     {
         setSize(width, height);
         repaint();
+    }
+
+
+    // public setters if the game is set from the GameOverPanel
+    public void setNumPlayers(int numPlayers) 
+    {
+        _numPlayers = numPlayers;
+        _playersSlider.setValue(numPlayers);
+        for(int i = 0; i < 4; i++) 
+        {
+            _playerNames[i].getParent().setVisible(i < _numPlayers);
+        }
+    }
+
+    public void setPlayerName(int index, String name) 
+    {
+        if (index >= 0 && index < _playerNames.length) 
+        {
+            _playerNames[index].setText(name);
+        }
+    }
+
+    public void setPlayerColor(int index, Color color) 
+    {
+        if (index >= 0 && index < _selectedColors.length) 
+        {
+            _selectedColors[index] = color;
+            _colorButtons[index].setBackground(color);
+        }
     }
 }
