@@ -29,14 +29,17 @@ public class StatsPanel extends JPanel
         _gameManager = gameManager;
         _isVisible = false;
         setLayout(new BorderLayout());
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15)); // Padding aumentato
+        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         
-        // Imposta una larghezza preferita più ampia
-        setPreferredSize(new Dimension(275, 600)); // Aumentato da ~250 a 320
-        setMinimumSize(new Dimension(300, 400));
+        // Aumenta lievemente l'altezza
+        setPreferredSize(new Dimension(285, 650)); // Era 275x600
+        setMinimumSize(new Dimension(310, 450));   // Era 300x400
 
         _allPlayersPanel = createAllPlayersPanel();
-        add(_allPlayersPanel, BorderLayout.CENTER);
+        
+        // Crea uno JScrollPane con stile personalizzato
+        JScrollPane scrollPane = createStyledScrollPane(_allPlayersPanel);
+        add(scrollPane, BorderLayout.CENTER);
         
         setVisible(false);
     }
@@ -174,10 +177,55 @@ public class StatsPanel extends JPanel
     // adds a label with stats to the given panel with specified color
     private void addStatsLabel(JPanel panel, String text, Color color) 
     {
-        JLabel label = new JLabel(text);
+        // Colori che necessitano di sfondo nero per leggibilità
+        boolean needsBlackBackground = color.equals(Color.YELLOW) || 
+                                     color.equals(Color.GREEN) || 
+                                     color.equals(Color.CYAN);
+        
+        JLabel label = new JLabel(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                if (needsBlackBackground) {
+                    Graphics2D g2d = (Graphics2D) g.create();
+                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    
+                    // Disegna il rettangolo nero dietro al testo
+                    FontMetrics fm = g2d.getFontMetrics();
+                    int textWidth = fm.stringWidth(getText());
+                    int textHeight = fm.getHeight();
+                    
+                    int padding = 4;
+                    int rectX = 2;
+                    int rectY = (getHeight() - textHeight) / 2;
+                    int rectWidth = textWidth + (padding * 2);
+                    int rectHeight = textHeight + padding;
+                    
+                    g2d.setColor(Color.BLACK);
+                    g2d.fillRoundRect(rectX, rectY, rectWidth, rectHeight, 6, 6);
+                    
+                    // Bordo sottile grigio
+                    g2d.setColor(Color.DARK_GRAY);
+                    g2d.setStroke(new BasicStroke(1.0f));
+                    g2d.drawRoundRect(rectX, rectY, rectWidth, rectHeight, 6, 6);
+                    
+                    g2d.dispose();
+                }
+                super.paintComponent(g);
+            }
+        };
+        
         label.setForeground(color);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setFont(UIStyleUtils.PROMPT_FONT.deriveFont(12f));
+        
+        // Aumenta lievemente l'altezza della label
+        label.setBorder(BorderFactory.createEmptyBorder(3, 6, 3, 6));
+        
+        // Se ha sfondo nero, aggiungi più padding per evitare sovrapposizioni
+        if (needsBlackBackground) {
+            label.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        }
+        
         panel.add(label);
     }
 
@@ -189,13 +237,127 @@ public class StatsPanel extends JPanel
         setVisible(_isVisible);
     }
     
+    // Crea uno scroll pane con stile coerente al gioco
+    private JScrollPane createStyledScrollPane(JComponent component) 
+    {
+        JScrollPane scrollPane = new JScrollPane(component);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        
+        // Styling per la scrollbar verticale
+        JScrollBar verticalBar = scrollPane.getVerticalScrollBar();
+        verticalBar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                // Colori coerenti con il tema del gioco
+                trackColor = UIStyleUtils.BUTTON_BORDER_COLOR;
+                thumbColor = UIStyleUtils.BUTTON_COLOR;
+                thumbHighlightColor = UIStyleUtils.BUTTON_HOVER_COLOR;
+                thumbLightShadowColor = UIStyleUtils.GOLDEN_COLOR;
+                thumbDarkShadowColor = new Color(60, 30, 15);
+            }
+            
+            @Override
+            protected JButton createDecreaseButton(int orientation) {
+                return createStyledScrollButton("▲");
+            }
+            
+            @Override
+            protected JButton createIncreaseButton(int orientation) {
+                return createStyledScrollButton("▼");
+            }
+            
+            @Override
+            protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Disegna il thumb con gradiente
+                GradientPaint gradient = new GradientPaint(
+                    thumbBounds.x, thumbBounds.y, UIStyleUtils.BUTTON_HOVER_COLOR,
+                    thumbBounds.x + thumbBounds.width, thumbBounds.y, UIStyleUtils.BUTTON_COLOR
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRoundRect(thumbBounds.x + 2, thumbBounds.y + 2, 
+                                thumbBounds.width - 4, thumbBounds.height - 4, 8, 8);
+                
+                // Bordo dorato
+                g2d.setColor(UIStyleUtils.GOLDEN_COLOR);
+                g2d.setStroke(new BasicStroke(1.5f));
+                g2d.drawRoundRect(thumbBounds.x + 2, thumbBounds.y + 2, 
+                                thumbBounds.width - 4, thumbBounds.height - 4, 8, 8);
+                
+                g2d.dispose();
+            }
+            
+            @Override
+            protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setColor(UIStyleUtils.BUTTON_BORDER_COLOR);
+                g2d.fillRoundRect(trackBounds.x + 4, trackBounds.y, 
+                                trackBounds.width - 8, trackBounds.height, 6, 6);
+                g2d.dispose();
+            }
+        });
+        
+        verticalBar.setPreferredSize(new Dimension(16, 0));
+        verticalBar.setOpaque(false);
+        
+        return scrollPane;
+    }
+    
+    // Crea bottoni stilizzati per la scrollbar
+    private JButton createStyledScrollButton(String text) {
+        JButton button = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Sfondo con gradiente
+                GradientPaint gradient = new GradientPaint(
+                    0, 0, getModel().isPressed() ? UIStyleUtils.BUTTON_COLOR : UIStyleUtils.BUTTON_HOVER_COLOR,
+                    0, getHeight(), UIStyleUtils.BUTTON_BORDER_COLOR
+                );
+                g2d.setPaint(gradient);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
+                
+                // Bordo
+                g2d.setColor(UIStyleUtils.GOLDEN_COLOR);
+                g2d.setStroke(new BasicStroke(1.0f));
+                g2d.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 4, 4);
+                
+                // Testo
+                g2d.setColor(Color.WHITE);
+                g2d.setFont(getFont());
+                FontMetrics fm = g2d.getFontMetrics();
+                int textX = (getWidth() - fm.stringWidth(getText())) / 2;
+                int textY = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                g2d.drawString(getText(), textX, textY);
+                
+                g2d.dispose();
+            }
+        };
+        
+        button.setPreferredSize(new Dimension(16, 16));
+        button.setBorder(BorderFactory.createEmptyBorder());
+        button.setContentAreaFilled(false);
+        button.setFocusPainted(false);
+        button.setOpaque(false);
+        button.setFont(new Font("SansSerif", Font.BOLD, 8));
+        
+        return button;
+    }
+
     // creates a styled border with a title in the player's color and white background for current player
     private Border createStyledBorderWithWhiteBackground(String title, Color playerColor) 
     {
         Border line = BorderFactory.createLineBorder(UIStyleUtils.GOLDEN_COLOR, 2);
-        Border empty = BorderFactory.createEmptyBorder(8, 8, 8, 8); // Più padding
+        Border empty = BorderFactory.createEmptyBorder(8, 8, 8, 8);
         
-        // Crea un custom TitledBorder con sfondo bianco
         TitledBorder titledBorder = new TitledBorder(
             BorderFactory.createCompoundBorder(line, empty), 
             title,
@@ -204,38 +366,46 @@ public class StatsPanel extends JPanel
         ) {
             @Override
             public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-                // PRIMA disegna il rettangolo bianco dietro al testo
                 Graphics2D g2d = (Graphics2D) g.create();
-                FontMetrics fm = g2d.getFontMetrics(getTitle() != null ? getTitleFont() : g2d.getFont());
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
                 
-                if (getTitle() != null) {
+                if (getTitle() != null && getTitleFont() != null) {
+                    g2d.setFont(getTitleFont());
+                    FontMetrics fm = g2d.getFontMetrics();
+                    
                     int titleWidth = fm.stringWidth(getTitle());
                     int titleHeight = fm.getHeight();
                     
-                    // Calcola la posizione del titolo
+                    // Calcola il centro del titolo CORRETTAMENTE
                     int titleX = x + (width - titleWidth) / 2;
-                    int titleY = y - titleHeight / 2 + fm.getAscent();
+                    int titleY = y; // La y del border è già centrata verticalmente
                     
-                    // Disegna il rettangolo bianco dietro al testo con più padding
-                    int padding = 8; // Padding aumentato
+                    // Disegna il rettangolo bianco CENTRATO dietro al testo
+                    int padding = 10;
+                    int rectX = titleX - padding;
+                    int rectY = titleY - titleHeight / 2 - padding / 2;
+                    int rectWidth = titleWidth + (padding * 2);
+                    int rectHeight = titleHeight + padding;
+                    
                     g2d.setColor(Color.WHITE);
-                    g2d.fillRoundRect(
-                        titleX - padding, 
-                        titleY - fm.getAscent() - padding/2,
-                        titleWidth + (padding * 2), 
-                        titleHeight + 2, // Leggermente più alto
-                        8, 8 // Angoli più arrotondati
-                    );
+                    g2d.fillRoundRect(rectX, rectY, rectWidth, rectHeight, 8, 8);
+                    
+                    // Bordo sottile attorno al rettangolo bianco
+                    g2d.setColor(UIStyleUtils.GOLDEN_COLOR);
+                    g2d.setStroke(new BasicStroke(1.0f));
+                    g2d.drawRoundRect(rectX, rectY, rectWidth, rectHeight, 8, 8);
                 }
+                
                 g2d.dispose();
                 
-                // POI disegna il border normale sopra
+                // Disegna il border normale sopra
                 super.paintBorder(c, g, x, y, width, height);
             }
         };
         
         titledBorder.setTitleColor(playerColor);
-        titledBorder.setTitleFont(UIStyleUtils.PROMPT_FONT.deriveFont(Font.BOLD, 18f)); // Font più grande
+        titledBorder.setTitleFont(UIStyleUtils.PROMPT_FONT.deriveFont(Font.BOLD, 18f));
         return titledBorder;
     }
 }

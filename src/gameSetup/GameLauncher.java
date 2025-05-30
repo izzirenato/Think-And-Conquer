@@ -269,12 +269,23 @@ public class GameLauncher
             stats.toggleVisibility();
             
             GameActionPanel actionPanel = findComponentRecursive(GameActionPanel.class, _frame.getContentPane());
-            if (actionPanel != null && actionPanel.isOverlayVisible()) 
+            if (actionPanel != null) 
             {
-                SwingUtilities.invokeLater(() -> 
+                if (actionPanel.isOverlayVisible()) 
                 {
-                    actionPanel.repositionOverlay();
-                });
+                    SwingUtilities.invokeLater(() -> 
+                    {
+                        actionPanel.repositionOverlay();
+                    });
+                }
+                
+                if (actionPanel.isTurnAnimationRunning()) 
+                {
+                    SwingUtilities.invokeLater(() -> 
+                    {
+                        actionPanel.repositionTurnNotification();
+                    });
+                }
             }
         }
     }

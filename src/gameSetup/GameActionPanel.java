@@ -45,6 +45,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     private JButton _attackButton;
     private JPanel _actionOverlay;
     private JPanel _blockingPanel;
+    private AnimatedEllipse _turnNotification; // Aggiungi questo
     
     // fonts
     private final Font _controlFont;
@@ -66,6 +67,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         initializeUIComponents();
         initializeActionListeners();
         initializeOverlay();
+        initializeTurnNotification(); // Aggiungi questo
         scale(frame.getWidth(), CONTROL_PANEL_HEIGHT);
         hideEverything();
         updatePlayerInfo();
@@ -158,6 +160,49 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     }
 
 
+    // initializes the turn notification ellipse
+    private void initializeTurnNotification()
+    {
+        _turnNotification = new AnimatedEllipse("", Color.WHITE, UIStyleUtils.BUTTON_COLOR);
+        
+        // Trova il JRootPane che contiene la MapPanel
+        Container parent = _mapPanel.getParent();
+        while (parent != null && !(parent instanceof JRootPane)) {
+            parent = parent.getParent();
+        }
+        
+        if (parent instanceof JRootPane) {
+            JRootPane rootPane = (JRootPane) parent;
+            
+            // Crea un glass pane personalizzato
+            JPanel mapGlassPane = new JPanel() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    // Non disegnare nulla di default
+                }
+                
+                @Override
+                public boolean isOptimizedDrawingEnabled() {
+                    return false; // Permette sovrapposizioni
+                }
+            };
+            
+            mapGlassPane.setOpaque(false);
+            mapGlassPane.setLayout(null);
+            mapGlassPane.setVisible(false);
+            
+            // Aggiungi l'ellisse al glass pane
+            mapGlassPane.add(_turnNotification);
+            
+            // Imposta il glass pane
+            rootPane.setGlassPane(mapGlassPane);
+        } else {
+            // Fallback: usa il layered pane del frame principale
+            _parentFrame.getLayeredPane().add(_turnNotification, JLayeredPane.POPUP_LAYER);
+        }
+    }
+
+
     // handles the end turn button action
     private void handleEndTurn() 
     {
@@ -165,14 +210,86 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         {
             _mapPanel.getInteractionHandler().clearSelection();
             hideActionButtons();
-
             _gameManager.nextTurn();
-            updatePlayerInfo();
+
+            showTurnNotification(() -> 
+            {
+                updatePlayerInfo();
+                showEndTurnButton();
+            });
         }
     }
 
 
-    // Initializes the modal overlay used for troop actions
+    // Mostra la notifica di cambio turno
+    private void showTurnNotification(Runnable onComplete)
+    {
+        Player currentPlayer = _gameManager.getCurrentPlayer();
+        if (currentPlayer == null) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+        
+        // Disabilita le interazioni
+        disableAllInteractions();
+        
+        // Aggiorna i parametri dell'ellisse
+        String turnText = currentPlayer.getName() + "'s turn";
+        _turnNotification._text = turnText;
+        _turnNotification._ellipseColor = currentPlayer.getColor();
+        _turnNotification._textColor = UIStyleUtils.BUTTON_COLOR;
+        
+        // Calcola la posizione della MapPanel relativa al glass pane
+        Point mapLocationInGlass = SwingUtilities.convertPoint(
+            _mapPanel.getParent(), 
+            _mapPanel.getX(), 
+            _mapPanel.getY(), 
+            _parentFrame.getRootPane().getGlassPane()
+        );
+        
+        // Posiziona l'ellisse esattamente sopra la MapPanel
+        _turnNotification.setBounds(
+            mapLocationInGlass.x, 
+            mapLocationInGlass.y, 
+            _mapPanel.getWidth(), 
+            _mapPanel.getHeight()
+        );
+        
+        // Mostra il glass pane
+        _parentFrame.getRootPane().getGlassPane().setVisible(true);
+        
+        // Avvia l'animazione
+        _turnNotification.startAnimation(() -> {
+            // Nascondi il glass pane
+            _parentFrame.getRootPane().getGlassPane().setVisible(false);
+            
+            // Riabilita le interazioni
+            enableAllInteractions();
+            if (onComplete != null) onComplete.run();
+        });
+    }
+
+
+    private void disableAllInteractions()
+    {
+        // Nascondi tutti i bottoni
+        _endTurnButton.setVisible(false);
+        _moveButton.setVisible(false);
+        _attackButton.setVisible(false);
+        _deployButton.setVisible(false);
+
+        _mapPanel.setEnabled(false);
+        
+    }
+
+
+    private void enableAllInteractions()
+    {
+        _mapPanel.setEnabled(true);
+    }
+
+
+    // initializes the overlay panel for actions
     private void initializeOverlay() 
     {
         // create overlay panel with semi-transparent background
@@ -193,21 +310,6 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         _actionOverlay.setLayout(new BorderLayout());
         _actionOverlay.setBorder(BorderFactory.createEmptyBorder(20, 40, 20, 40));
         _actionOverlay.setVisible(false);
-        
-        // REMOVE this ComponentListener - it causes the infinite loop
-        /*
-        _actionOverlay.addComponentListener(new ComponentAdapter() 
-        {
-            @Override
-            public void componentResized(ComponentEvent e) 
-            {
-                SwingUtilities.invokeLater(() -> 
-                {
-                    scaleOverlayComponents(_actionOverlay.getWidth(), _actionOverlay.getHeight());
-                });
-            }
-        });
-        */
         
         // create a blocking panel that will prevent clicks from passing through
         _blockingPanel = new JPanel();
@@ -636,7 +738,6 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         _attackButton.setVisible(canAttack);
     }
    
-    
     // helper methods for button visibility, public 
     public void hideActionButtons() 
     {
@@ -648,6 +749,40 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
 
     // public method to show the End Turn button
     public void showEndTurnButton() {_endTurnButton.setVisible(true);}
+
+
+    // checks if turn animation is currently running
+    public boolean isTurnAnimationRunning() 
+    {
+        return _turnNotification != null && _turnNotification.isAnimating();
+    }
+
+
+    // reposition the turn notification ellipse (used when stats panel is toggled during animation)
+    public void repositionTurnNotification() 
+    {
+        if (_turnNotification != null && _turnNotification.isAnimating()) 
+        {
+            // Ricalcola la posizione della MapPanel relativa al glass pane
+            Point mapLocationInGlass = SwingUtilities.convertPoint(
+                _mapPanel.getParent(), 
+                _mapPanel.getX(), 
+                _mapPanel.getY(), 
+                _parentFrame.getRootPane().getGlassPane()
+            );
+            
+            // Riposiziona l'ellisse
+            _turnNotification.setBounds(
+                mapLocationInGlass.x, 
+                mapLocationInGlass.y, 
+                _mapPanel.getWidth(), 
+                _mapPanel.getHeight()
+            );
+            
+            _turnNotification.revalidate();
+            _turnNotification.repaint();
+        }
+    }
 
 
     // scales the panel and repositions components based on size
@@ -715,8 +850,8 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
             endTurnButtonSize.height
         );
         
-        // Riposiziona l'overlay se è aperto
         repositionOverlay();
+        repositionTurnNotification();
     }
 
 
