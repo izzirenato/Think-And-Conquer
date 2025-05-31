@@ -32,6 +32,9 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
         setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
         setBackground(UIStyleUtils.BUTTON_COLOR);
 
+        // NUOVO: Nasconde i menu quando GameOverPanel è attivo
+        GameLauncher.hideGameMenus();
+
         JPanel headerPanel = createHeaderPanel();
         add(headerPanel, BorderLayout.NORTH);
 
@@ -247,6 +250,9 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
             if (parentFrame != null) 
             {
+                // NUOVO: Ripristina i menu prima di cambiare pannello
+                GameLauncher.showGameMenus();
+                
                 parentFrame.getContentPane().removeAll();
                 PlayerSetupPanel setupPanel = new PlayerSetupPanel(parentFrame);
                 parentFrame.getContentPane().add(setupPanel);
@@ -262,6 +268,9 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
             if (parentFrame != null) 
             {
+                // NUOVO: Ripristina i menu prima di riavviare
+                GameLauncher.showGameMenus();
+                
                 PlayerSetupPanel setupPanel = new PlayerSetupPanel(parentFrame);
                 
                 try 

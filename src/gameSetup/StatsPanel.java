@@ -177,55 +177,11 @@ public class StatsPanel extends JPanel
     // adds a label with stats to the given panel with specified color
     private void addStatsLabel(JPanel panel, String text, Color color) 
     {
-        // Colori che necessitano di sfondo nero per leggibilità
-        boolean needsBlackBackground = color.equals(Color.YELLOW) || 
-                                     color.equals(Color.GREEN) || 
-                                     color.equals(Color.CYAN);
-        
-        JLabel label = new JLabel(text) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                if (needsBlackBackground) {
-                    Graphics2D g2d = (Graphics2D) g.create();
-                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    
-                    // Disegna il rettangolo nero dietro al testo
-                    FontMetrics fm = g2d.getFontMetrics();
-                    int textWidth = fm.stringWidth(getText());
-                    int textHeight = fm.getHeight();
-                    
-                    int padding = 4;
-                    int rectX = 2;
-                    int rectY = (getHeight() - textHeight) / 2;
-                    int rectWidth = textWidth + (padding * 2);
-                    int rectHeight = textHeight + padding;
-                    
-                    g2d.setColor(Color.BLACK);
-                    g2d.fillRoundRect(rectX, rectY, rectWidth, rectHeight, 6, 6);
-                    
-                    // Bordo sottile grigio
-                    g2d.setColor(Color.DARK_GRAY);
-                    g2d.setStroke(new BasicStroke(1.0f));
-                    g2d.drawRoundRect(rectX, rectY, rectWidth, rectHeight, 6, 6);
-                    
-                    g2d.dispose();
-                }
-                super.paintComponent(g);
-            }
-        };
-        
+        JLabel label = new JLabel(text);
         label.setForeground(color);
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setFont(UIStyleUtils.PROMPT_FONT.deriveFont(12f));
-        
-        // Aumenta lievemente l'altezza della label
         label.setBorder(BorderFactory.createEmptyBorder(3, 6, 3, 6));
-        
-        // Se ha sfondo nero, aggiungi più padding per evitare sovrapposizioni
-        if (needsBlackBackground) {
-            label.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
-        }
-        
         panel.add(label);
     }
 
@@ -358,6 +314,11 @@ public class StatsPanel extends JPanel
         Border line = BorderFactory.createLineBorder(UIStyleUtils.GOLDEN_COLOR, 2);
         Border empty = BorderFactory.createEmptyBorder(8, 8, 8, 8);
         
+        // Determina se usare sfondo bianco o nero basandosi sul colore del player
+        boolean useWhiteBackground = playerColor.equals(Color.RED) || 
+                                   playerColor.equals(Color.BLUE) || 
+                                   playerColor.equals(new Color(128, 0, 128)); // purple
+        
         TitledBorder titledBorder = new TitledBorder(
             BorderFactory.createCompoundBorder(line, empty), 
             title,
@@ -377,21 +338,22 @@ public class StatsPanel extends JPanel
                     int titleWidth = fm.stringWidth(getTitle());
                     int titleHeight = fm.getHeight();
                     
-                    // Calcola il centro del titolo CORRETTAMENTE
+                    // Calcola il centro del titolo
                     int titleX = x + (width - titleWidth) / 2;
-                    int titleY = y; // La y del border è già centrata verticalmente
+                    int titleY = y;
                     
-                    // Disegna il rettangolo bianco CENTRATO dietro al testo
+                    // Disegna il rettangolo dietro al testo - ALLUNGATO verso il basso
                     int padding = 10;
                     int rectX = titleX - padding;
                     int rectY = titleY - titleHeight / 2 - padding / 2;
                     int rectWidth = titleWidth + (padding * 2);
-                    int rectHeight = titleHeight + padding;
+                    int rectHeight = titleHeight + padding + 6; // AGGIUNTO +6 per allungare verso il basso
                     
-                    g2d.setColor(Color.WHITE);
+                    // Usa bianco o nero a seconda del colore del player
+                    g2d.setColor(useWhiteBackground ? Color.WHITE : Color.BLACK);
                     g2d.fillRoundRect(rectX, rectY, rectWidth, rectHeight, 8, 8);
                     
-                    // Bordo sottile attorno al rettangolo bianco
+                    // Bordo sottile attorno al rettangolo
                     g2d.setColor(UIStyleUtils.GOLDEN_COLOR);
                     g2d.setStroke(new BasicStroke(1.0f));
                     g2d.drawRoundRect(rectX, rectY, rectWidth, rectHeight, 8, 8);

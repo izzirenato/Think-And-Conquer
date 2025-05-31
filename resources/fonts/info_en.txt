@@ -1,0 +1,89 @@
+GAME RULES
+Objective:
+Conquer territories by correctly answering trivia questions to reach the maximum score or eliminate all opponents
+
+
+INITIAL SETUP
+- Each player receives 3 random territories from their assigned spawn continent
+- Each territory starts with 1 random troop
+- Each player receives 2 additional random troops to deploy
+
+
+POINTS TO WIN
+- 2 players: 3600 points
+- 3 players: 3200 points
+- 4 players: 2800 points
+
+
+SCORING SYSTEM
+- +100 points for each territory conquered
+- +200 points for each continent controlled in his entirety
+- Obviously, if you don't control any territory, you have lost
+
+
+GAME TURN
+- Reinforcements: Every round you receive troops (points ÷ 200, minimum 1)
+- Deployment: Place troops on your territories
+- Actions: Attack or move troops (each troop can act only once per turn)
+- End turn: Pass to next player
+
+
+TROOP TYPES
+Each troop type specializes in a question category:
+- Archer: Art and Literature
+- Barbarian: History and Geography
+- Dragon: Cinema and Music
+- Horse: Sport
+- Wizard: Science
+
+
+COMBAT
+You have two Scenarios:
+- Attack on Defended Enemy Territory - DUEL
+	Face the defender in a multiple question challenge
+	Number of questions equals total troops involved in the duel
+	Each question matches the troop type: attacking with 2 Horses and 3 Dragons means 2 Sports questions and 3 Movies & Music questions
+	Difficulty choice: Each player chooses difficulty for each of their questions:
+
+	- Too Easy -> 100 points
+	- Easy -> 200 points
+	- Medium -> 300 points
+	- Hard -> 400 points
+	- Impossible -> 500 points
+
+	Winner has the highest total score
+
+
+- Attack on Undefended Territory
+	Answer one single question
+	Difficulty is preset based on total attacking troop count:
+
+	- 1-2 troops: Medium
+	- 3-4 troops: Easy
+	- 5+ troops: Too Easy
+
+	In this case, the category is determined by the most common attacking troop type
+
+
+
+BATTLE LOSSES
+In the case of a Duel, troops can be lost:
+
+- 0-0 tie: Both players lose all troops, defender keeps control of the territory
+- Other ties: Both reduced to the smaller original troop count, defender loses the territory
+- Attacker wins: Attacker takes control of the territory
+- Defender wins: Defender keeps control of the territory
+
+In the case of a victory, all troops of the loser die, while the winner loses troops based on the victory margin  
+Special case: If the loser scored 0 points, the winner keeps all troops  
+Troop elimination: Eliminated troops are randomly discarded from original groups
+
+
+
+HOW TO WIN
+Win when you:
+- Reach the maximum score
+- Are the last player standing
+
+
+HAVE A GOOD MATCH, SOLDIER

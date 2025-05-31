@@ -1,0 +1,89 @@
+REGOLE DI GIOCO
+Obiettivo:
+Conquista territori rispondendo correttamente a domande di cultura generale per raggiungere il punteggio massimo o eliminare tutti gli avversari
+
+
+IMPOSTAZIONE INIZIALE
+- Ogni giocatore riceve 3 territori casuali dal proprio continente di partenza assegnato
+- Ogni territorio parte con 1 truppa casuale
+- Ogni giocatore riceve 2 truppe aggiuntive casuali da schierare
+
+
+PUNTI PER VINCERE
+- 2 giocatori: 3600 punti
+- 3 giocatori: 3200 punti
+- 4 giocatori: 2800 punti
+
+
+SISTEMA DI PUNTEGGIO
+- +100 punti per ogni territorio conquistato
+- +200 punti per ogni continente controllato interamente
+- Ovviamente, se non controlli alcun territorio, hai perso
+
+
+TURNO DI GIOCO
+- Rinforzi: Ogni turno ricevi truppe (punti ÷ 200, minimo 1)
+- Schieramento: Posiziona le truppe sui tuoi territori
+- Azioni: Attacca o muovi truppe (ogni truppa può agire solo una volta per turno)
+- Fine turno: Passa al giocatore successivo
+
+
+TIPI DI TRUPPE
+Ogni tipo di truppa è specializzato in una categoria di domande:
+- Arciere: Arte e Letteratura
+- Barbaro: Storia e Geografia
+- Drago: Cinema e Musica
+- Cavallo: Sport
+- Mago: Scienza
+
+
+COMBATTIMENTO
+Hai due scenari:
+- Attacco a Territorio Nemico Difeso - DUELLO
+	Affronta il difensore in una sfida a domande multiple
+	Il numero di domande corrisponde al totale delle truppe coinvolte nel duello
+	Ogni domanda corrisponde al tipo di truppa: attaccare con 2 Cavalli e 3 Draghi significa 2 domande di Sport e 3 domande di Cinema e Musica
+	Scelta della difficoltà: Ogni giocatore sceglie la difficoltà per ciascuna delle proprie domande:
+
+	- Troppo Facile -> 100 punti
+	- Facile -> 200 punti
+	- Media -> 300 punti
+	- Difficile -> 400 punti
+	- Impossibile -> 500 punti
+
+	Il vincitore è chi ottiene il punteggio totale più alto
+
+
+- Attacco a Territorio Indifeso
+	Rispondi a una singola domanda
+	La difficoltà è preimpostata in base al numero totale di truppe attaccanti:
+
+	- 1-2 truppe: Media
+	- 3-4 truppe: Facile
+	- 5+ truppe: Troppo Facile
+
+	In questo caso, la categoria è determinata dal tipo di truppa più comune tra quelle attaccanti
+
+
+
+PERDITE IN BATTAGLIA
+Nel caso di un Duello, le truppe possono morire:
+
+- Pareggio 0-0: Entrambi perdono tutte le truppe, il difensore mantiene il controllo del territorio
+- Altri pareggi: Entrambi ridotti al numero minore di truppe originali, il difensore perde il territorio
+- Vittoria dell'attaccante: L'attaccante si impossessa del territorio
+- Vittoria del difensore: Il difensore mantiene il controllo del territorio
+
+In caso di vittoria, muoiono tutte le truppe del perdente mentre il vincitore le perde in base al margine di vittoria
+Caso speciale: Se il perdente ha totalizzato 0 punti, il vincitore mantiene tutte le truppe
+Eliminazione truppe: Le truppe eliminate vengono scartate casualmente dai gruppi originali
+
+
+
+COME VINCERE
+Vinci quando:
+- Raggiungi il punteggio massimo
+- Sei l’ultimo giocatore rimasto in gioco
+
+
+BUONA PARTITA, SOLDATO

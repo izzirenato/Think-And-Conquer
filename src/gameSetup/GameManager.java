@@ -197,14 +197,20 @@ public class GameManager
         advanceToNextPlayer();
         assignReinforcements();
         
-         _statsPanel.update();
+        _statsPanel.update();
     }
 
 
     // goes to the next player
     private void advanceToNextPlayer()
     {
-        _currentPlayerIndex = (_currentPlayerIndex + 1) % _players.size();
+        int originalIndex = _currentPlayerIndex;
+        do 
+        {
+            _currentPlayerIndex = (_currentPlayerIndex + 1) % _players.size();
+        } 
+        while (_players.get(_currentPlayerIndex).isEliminated() 
+                && _currentPlayerIndex != originalIndex);
     }
 
 
@@ -617,6 +623,8 @@ public class GameManager
             // check for continent bonuses and losses
             checkContinentBonus(attacker, targetTerritory);
             checkContinentLoss(defender, targetTerritory);
+
+            checkPlayerElimination(defender);
             
             System.out.println("Territory conquered: " + survivingAttackerTroops + " troops moved to " + 
                             targetTerritory.getName());
@@ -723,9 +731,20 @@ public class GameManager
     // checks the win
     private void checkVictory(Player player)
     {
-        if (player.getPoints() >= _maxPoints)
+        // Controlla se il giocatore ha raggiunto i punti massimi
+        boolean wonByPoints = player.getPoints() >= _maxPoints;
+        
+        // Controlla se è l'ultimo giocatore rimasto
+        long remainingPlayers = _players.stream().filter(p -> !p.isEliminated()).count();
+        boolean lastPlayerStanding = remainingPlayers <= 1;
+        
+        if (wonByPoints || lastPlayerStanding)
         {
             _gameOver = true;
+            
+            System.out.println(player.getName() + " wins! " + 
+                (wonByPoints ? "Points victory: " + player.getPoints() + "/" + _maxPoints : 
+                 "Last player standing!"));
             
             // Get the main game frame
             JFrame gameFrame = (JFrame) SwingUtilities.getWindowAncestor(_mapPanel);
@@ -1010,6 +1029,22 @@ public class GameManager
         return total;
     }
 
+        // NUOVO METODO: Controlla se un giocatore è stato eliminato
+    private void checkPlayerElimination(Player player) {
+        if (player == null || player.isEliminated()) return;
+        
+        List<Territory> playerTerritories = getPlayerTerritories(player);
+        if (playerTerritories.isEmpty()) {
+            // Il giocatore non ha più territori, eliminalo
+            player.eliminate();
+            System.out.println(player.getName() + " has been eliminated from the game!");
+            
+            String eliminationText = player.getName() + " is dead";
+            _gameActionPanel.showEliminationNotification(eliminationText, player.getColor(), null);
+        }
+    }
+
+
 
     // public getters and setters
     public int getMaxPoints() {return _maxPoints;}
@@ -1023,4 +1058,6 @@ public class GameManager
     public void setStatsPanel(StatsPanel statsPanel) {
         _statsPanel = statsPanel;
     }
+
+
 }

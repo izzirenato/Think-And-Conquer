@@ -45,7 +45,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     private JButton _attackButton;
     private JPanel _actionOverlay;
     private JPanel _blockingPanel;
-    private AnimatedEllipse _turnNotification; // Aggiungi questo
+    private AnimatedEllipse _notificationEllipse; // RINOMINATO: ora gestisce sia turno che eliminazione
     
     // fonts
     private final Font _controlFont;
@@ -67,7 +67,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         initializeUIComponents();
         initializeActionListeners();
         initializeOverlay();
-        initializeTurnNotification(); // Aggiungi questo
+        initializeNotificationEllipse(); // RINOMINATO
         scale(frame.getWidth(), CONTROL_PANEL_HEIGHT);
         hideEverything();
         updatePlayerInfo();
@@ -160,10 +160,10 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     }
 
 
-    // initializes the turn notification ellipse
-    private void initializeTurnNotification()
+    // RINOMINATO E UNIFICATO: inizializza l'ellisse per tutte le notifiche
+    private void initializeNotificationEllipse()
     {
-        _turnNotification = new AnimatedEllipse("", Color.WHITE, UIStyleUtils.BUTTON_COLOR);
+        _notificationEllipse = new AnimatedEllipse("", Color.WHITE, UIStyleUtils.BUTTON_COLOR);
         
         // Trova il JRootPane che contiene la MapPanel
         Container parent = _mapPanel.getParent();
@@ -192,13 +192,13 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
             mapGlassPane.setVisible(false);
             
             // Aggiungi l'ellisse al glass pane
-            mapGlassPane.add(_turnNotification);
+            mapGlassPane.add(_notificationEllipse);
             
             // Imposta il glass pane
             rootPane.setGlassPane(mapGlassPane);
         } else {
             // Fallback: usa il layered pane del frame principale
-            _parentFrame.getLayeredPane().add(_turnNotification, JLayeredPane.POPUP_LAYER);
+            _parentFrame.getLayeredPane().add(_notificationEllipse, JLayeredPane.POPUP_LAYER);
         }
     }
 
@@ -233,12 +233,23 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         // Disabilita le interazioni
         disableAllInteractions();
         
-        // Aggiorna i parametri dell'ellisse
+        // Configura l'ellisse per il cambio turno
         String turnText = currentPlayer.getName() + "'s turn";
-        _turnNotification._text = turnText;
-        _turnNotification._ellipseColor = currentPlayer.getColor();
-        _turnNotification._textColor = UIStyleUtils.BUTTON_COLOR;
+        _notificationEllipse._text = turnText;
+        _notificationEllipse._ellipseColor = currentPlayer.getColor();
+        _notificationEllipse._textColor = UIStyleUtils.BUTTON_COLOR;
         
+        // Mostra l'ellisse
+        showNotificationEllipse(() -> {
+            // Riabilita le interazioni
+            enableAllInteractions();
+            if (onComplete != null) onComplete.run();
+        });
+    }
+
+    // NUOVO METODO UNIFICATO: Gestisce la visualizzazione dell'ellisse
+    private void showNotificationEllipse(Runnable onComplete) 
+    {
         // Calcola la posizione della MapPanel relativa al glass pane
         Point mapLocationInGlass = SwingUtilities.convertPoint(
             _mapPanel.getParent(), 
@@ -248,7 +259,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         );
         
         // Posiziona l'ellisse esattamente sopra la MapPanel
-        _turnNotification.setBounds(
+        _notificationEllipse.setBounds(
             mapLocationInGlass.x, 
             mapLocationInGlass.y, 
             _mapPanel.getWidth(), 
@@ -259,10 +270,32 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         _parentFrame.getRootPane().getGlassPane().setVisible(true);
         
         // Avvia l'animazione
-        _turnNotification.startAnimation(() -> {
+        _notificationEllipse.startAnimation(() -> {
             // Nascondi il glass pane
             _parentFrame.getRootPane().getGlassPane().setVisible(false);
             
+            if (onComplete != null) onComplete.run();
+        });
+    }
+
+    // NUOVO METODO: Mostra notifica di eliminazione
+    public void showEliminationNotification(String eliminationText, Color playerColor, Runnable onComplete) 
+    {
+        if (_notificationEllipse == null) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+        
+        // Disabilita le interazioni
+        disableAllInteractions();
+        
+        // Configura l'ellisse per l'eliminazione
+        _notificationEllipse._text = eliminationText;
+        _notificationEllipse._ellipseColor = Color.BLACK; // Ellisse nera per l'eliminazione
+        _notificationEllipse._textColor = Color.WHITE;    // Testo bianco (gestito in AnimatedEllipse per colorare il nome)
+        
+        // Posiziona l'ellisse sopra la MapPanel
+        showNotificationEllipse(() -> {
             // Riabilita le interazioni
             enableAllInteractions();
             if (onComplete != null) onComplete.run();
@@ -270,8 +303,15 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     }
 
 
-    private void disableAllInteractions()
-    {
+    // NUOVO: Metodo per attivare/disattivare il bottone End Turn
+    public void setEndTurnButtonEnabled(boolean enabled) {
+        if (_endTurnButton != null) {
+            _endTurnButton.setEnabled(enabled);
+        }
+    }
+
+    // NUOVO: Metodi pubblici per gestire le interazioni
+    public void disableAllInteractions() {
         // Nascondi tutti i bottoni
         _endTurnButton.setVisible(false);
         _moveButton.setVisible(false);
@@ -279,12 +319,9 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         _deployButton.setVisible(false);
 
         _mapPanel.setEnabled(false);
-        
     }
 
-
-    private void enableAllInteractions()
-    {
+    public void enableAllInteractions() {
         _mapPanel.setEnabled(true);
     }
 
@@ -751,17 +788,34 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     public void showEndTurnButton() {_endTurnButton.setVisible(true);}
 
 
-    // checks if turn animation is currently running
+    // RINOMINATO: checks if any notification animation is currently running
     public boolean isTurnAnimationRunning() 
     {
-        return _turnNotification != null && _turnNotification.isAnimating();
+        return _notificationEllipse != null && _notificationEllipse.isAnimating();
     }
 
+    // NUOVO METODO: Controlla se l'animazione di eliminazione è in corso
+    public boolean isEliminationAnimationRunning() 
+    {
+        return isTurnAnimationRunning(); // Stessa logica, stessa ellisse
+    }
 
-    // reposition the turn notification ellipse (used when stats panel is toggled during animation)
+    // RINOMINATO: reposition the notification ellipse
     public void repositionTurnNotification() 
     {
-        if (_turnNotification != null && _turnNotification.isAnimating()) 
+        repositionNotificationEllipse();
+    }
+
+    // NUOVO METODO: reposition the elimination notification ellipse
+    public void repositionEliminationNotification() 
+    {
+        repositionNotificationEllipse();
+    }
+
+    // NUOVO METODO UNIFICATO: riposiziona l'ellisse di notifica
+    private void repositionNotificationEllipse() 
+    {
+        if (_notificationEllipse != null && _notificationEllipse.isAnimating()) 
         {
             // Ricalcola la posizione della MapPanel relativa al glass pane
             Point mapLocationInGlass = SwingUtilities.convertPoint(
@@ -772,18 +826,17 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
             );
             
             // Riposiziona l'ellisse
-            _turnNotification.setBounds(
+            _notificationEllipse.setBounds(
                 mapLocationInGlass.x, 
                 mapLocationInGlass.y, 
                 _mapPanel.getWidth(), 
                 _mapPanel.getHeight()
             );
             
-            _turnNotification.revalidate();
-            _turnNotification.repaint();
+            _notificationEllipse.revalidate();
+            _notificationEllipse.repaint();
         }
     }
-
 
     // scales the panel and repositions components based on size
     @Override
@@ -851,7 +904,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         );
         
         repositionOverlay();
-        repositionTurnNotification();
+        repositionNotificationEllipse(); // AGGIORNATO
     }
 
 

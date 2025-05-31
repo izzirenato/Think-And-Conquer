@@ -16,6 +16,7 @@ public class Player
     private int _correctAnswers;
     private int _wrongAnswers;
     private int _points;
+    private boolean _isEliminated;
     private Map<String, Integer> _availableTroops;
     private Map<Question.Category, Integer> _correctAnswersByCategory;
     private Map<Question.Category, Integer> _wrongAnswersByCategory;
@@ -31,6 +32,7 @@ public class Player
         _availableTroops = new HashMap<>();
         _correctAnswersByCategory = new HashMap<>();
         _wrongAnswersByCategory = new HashMap<>();
+        _isEliminated = false;
         
         for (Question.Category category : Question.Category.values()) 
         {
@@ -117,4 +119,7 @@ public class Player
             }
         }
     }
+
+    public boolean isEliminated() {return _isEliminated;}
+    public void eliminate() {_isEliminated = true;}
 }

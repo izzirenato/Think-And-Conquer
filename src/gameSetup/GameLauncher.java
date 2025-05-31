@@ -22,6 +22,7 @@ public class GameLauncher
     private static boolean _isFullScreen = false;
     private static Rectangle _previousBounds;
     private static boolean _isResizingFromToggle = false;
+    private static JPanel _glassPane; // AGGIUNTO: Glass pane per bloccare interazioni
 
     // window state constants
     private static final int _WINDOWED_STATE = JFrame.NORMAL;
@@ -88,12 +89,96 @@ public class GameLauncher
             }
         });
 
+        // AGGIUNTO: Inizializza glass pane
+        setupGlassPane();
+        
         setupKeyBindings();
         setupMenuBar();
         _frame.setLocationRelativeTo(null);
         _frame.setVisible(true);
     }
 
+    // NUOVO: Configura il glass pane per bloccare interazioni
+    private static void setupGlassPane() 
+    {
+        _glassPane = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                // Glass pane trasparente
+                super.paintComponent(g);
+            }
+        };
+        
+        _glassPane.setOpaque(false);
+        _glassPane.setVisible(false);
+        
+        // Blocca tutti i mouse events
+        _glassPane.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) { e.consume(); }
+            @Override
+            public void mousePressed(MouseEvent e) { e.consume(); }
+            @Override
+            public void mouseReleased(MouseEvent e) { e.consume(); }
+        });
+        
+        _glassPane.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) { e.consume(); }
+            @Override
+            public void mouseDragged(MouseEvent e) { e.consume(); }
+        });
+        
+        // Configura key bindings ristretti per il glass pane
+        setupRestrictedKeyBindings();
+        
+        _frame.setGlassPane(_glassPane);
+    }
+
+    // NUOVO: Key bindings ristretti quando glass pane è attivo
+    private static void setupRestrictedKeyBindings() 
+    {
+        InputMap inputMap = _glassPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = _glassPane.getActionMap();
+        
+        // Solo F11 e ESC sono permessi
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F11, 0), "TOGGLE_FULLSCREEN");
+        actionMap.put("TOGGLE_FULLSCREEN", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                toggleFullScreen();
+            }
+        });
+        
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "EXIT_GAME");
+        actionMap.put("EXIT_GAME", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (UIStyleUtils.showConfirmDialog(_frame)) {
+                    System.exit(0);
+                }
+            }
+        });
+        
+        // Blocca esplicitamente tutti gli altri tasti
+        KeyStroke[] blockedKeys = {
+            KeyStroke.getKeyStroke(KeyEvent.VK_G, 0),
+            KeyStroke.getKeyStroke(KeyEvent.VK_I, 0),
+            KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0),
+            KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0)
+            // Aggiungi altri tasti se necessario
+        };
+        
+        for (KeyStroke key : blockedKeys) {
+            inputMap.put(key, "BLOCKED");
+            actionMap.put("BLOCKED", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    // Non fare nulla - blocca l'azione
+                }
+            });
+        }
+    }
 
     // Displays the splash screen
     private static void showSplashScreen() 
@@ -104,7 +189,7 @@ public class GameLauncher
     }
 
 
-    // Registers key bindings: F11 toggles full-screen, Space toggles stats panel
+    // Registers key bindings: F11 toggles full-screen, G toggles stats panel, I toggles info, SPACE for end turn
     private static void setupKeyBindings() 
     {
         // gets the main bucket of the JFrame with the key bindings
@@ -120,10 +205,40 @@ public class GameLauncher
             @Override public void actionPerformed(ActionEvent e) {toggleFullScreen();}
         });
 
-        inMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), "TOGGLE_STATS");
+        // MODIFICATO: Usa G invece di CTRL+SPACE per evitare conflitti
+        inMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_G, 0), "TOGGLE_STATS");
         actMap.put("TOGGLE_STATS", new AbstractAction() 
         {
-            @Override public void actionPerformed(ActionEvent e) {toggleStatsPanel();}
+            @Override public void actionPerformed(ActionEvent e) {
+                // NUOVO: Solo se non siamo in GameOverPanel
+                if (!isGameOverPanelActive()) {
+                    toggleStatsPanel();
+                }
+            }
+        });
+
+        // NUOVO: Shortcut I per info panel
+        inMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_I, 0), "TOGGLE_INFO");
+        actMap.put("TOGGLE_INFO", new AbstractAction() 
+        {
+            @Override public void actionPerformed(ActionEvent e) {
+                // NUOVO: Solo se non siamo in GameOverPanel
+                if (!isGameOverPanelActive()) {
+                    toggleInfoPanel();
+                }
+            }
+        });
+
+        // NUOVO: SPACE per fine turno
+        inMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), "END_TURN");
+        actMap.put("END_TURN", new AbstractAction() 
+        {
+            @Override public void actionPerformed(ActionEvent e) {
+                // NUOVO: Solo se non siamo in GameOverPanel
+                if (!isGameOverPanelActive()) {
+                    triggerEndTurn();
+                }
+            }
         });
 
         inMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "EXIT_GAME");
@@ -139,8 +254,61 @@ public class GameLauncher
         });
     }
 
-    
-    // Constructs a custom-styled menu bar with "Visualize" and (hidden) "Game" menus
+    // NUOVO: Controlla se GameOverPanel è attivo
+    private static boolean isGameOverPanelActive() {
+        GameOverPanel gameOverPanel = findComponentRecursive(GameOverPanel.class, _frame.getContentPane());
+        return gameOverPanel != null;
+    }
+
+    // NUOVO: Trigger del fine turno tramite shortcut
+    private static void triggerEndTurn() {
+        GameActionPanel actionPanel = findComponentRecursive(GameActionPanel.class, _frame.getContentPane());
+        if (actionPanel != null) {
+            // Simula il click del bottone End Turn se è abilitato e visibile
+            Component[] components = actionPanel.getComponents();
+            for (Component comp : components) {
+                if (comp instanceof JButton && "End Turn".equals(((JButton) comp).getText())) {
+                    JButton endTurnButton = (JButton) comp;
+                    if (endTurnButton.isVisible() && endTurnButton.isEnabled()) {
+                        endTurnButton.doClick();
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    // NUOVO: Nasconde i menu Game e Info
+    public static void hideGameMenus() {
+        JMenuBar bar = _frame.getJMenuBar();
+        if (bar != null) {
+            for (int i = 0; i < bar.getMenuCount(); i++) {
+                JMenu menu = bar.getMenu(i);
+                String menuText = menu.getText();
+                if ("Game".equals(menuText) || "Info".equals(menuText)) {
+                    menu.setVisible(false);
+                }
+            }
+        }
+    }
+
+    // NUOVO: Mostra i menu Game e Info
+    public static void showGameMenus() {
+        JMenuBar bar = _frame.getJMenuBar();
+        if (bar != null) {
+            for (int i = 0; i < bar.getMenuCount(); i++) {
+                JMenu menu = bar.getMenu(i);
+                String menuText = menu.getText();
+                if ("Info".equals(menuText)) {
+                    menu.setVisible(true);
+                }
+                // Game menu rimane nascosto fino a quando non viene esplicitamente mostrato
+            }
+        }
+    }
+
+
+    // Constructs a custom-styled menu bar with "Visualize", "Info" and (hidden) "Game" menus
     private static void setupMenuBar() 
     {
         JMenuBar menuBar = new GradientMenuBar();
@@ -160,8 +328,14 @@ public class GameLauncher
         }));
         menuBar.add(visualizeMenu);
 
+        // NUOVO: Menu Info
+        JMenu infoMenu = createMenu("Info");
+        infoMenu.add(createMenuItem("Game Info (I)", _ -> toggleInfoPanel()));
+        menuBar.add(infoMenu);
+
         JMenu gameMenu = createMenu("Game");
-        gameMenu.add(createMenuItem("Stats Panel (Space)", _ -> toggleStatsPanel()));
+        // AGGIORNATO il testo per riflettere il nuovo tasto
+        gameMenu.add(createMenuItem("Stats Panel (G)", _ -> toggleStatsPanel()));
         gameMenu.setVisible(false);
         menuBar.add(gameMenu);
 
@@ -218,7 +392,11 @@ public class GameLauncher
     }
 
 
-    // Invokes scaling on game panels after layout updates
+    // NUOVO: Metodo helper per posizionare e scalare l'InfoPanel
+    private static void positionAndScaleInfoPanel(InfoPanel infoPanel) {
+        infoPanel.positionAndScale(_frame);
+    }
+
     private static void resizeGamePanels() 
     {
         SwingUtilities.invokeLater(() -> 
@@ -235,6 +413,13 @@ public class GameLauncher
             if (actionPanel != null) 
             {
                 actionPanel.scale(w, 75);
+            }
+            
+            // SEMPLIFICATO: Usa il metodo helper
+            InfoPanel infoPanel = findComponentRecursive(InfoPanel.class, _frame.getLayeredPane());
+            if (infoPanel != null && infoPanel.isInfoVisible()) 
+            {
+                positionAndScaleInfoPanel(infoPanel);
             }
             
             content.revalidate(); 
@@ -291,7 +476,78 @@ public class GameLauncher
     }
 
     
-    // Recursively finds a component of the given type (if I have to be honest I didn't really understand how does the Class<T> type work)
+    // CORRETTO: Toggles visibility of the InfoPanel component
+    private static void toggleInfoPanel() 
+    {
+        // CORRETTO: Cerca nel layered pane dove effettivamente viene aggiunto l'InfoPanel
+        InfoPanel infoPanel = findComponentRecursive(InfoPanel.class, _frame.getLayeredPane());
+        GameActionPanel actionPanel = findComponentRecursive(GameActionPanel.class, _frame.getContentPane());
+        
+        if (infoPanel != null) 
+        {
+            infoPanel.toggleVisibility();
+            
+            // NUOVO: Disattiva/attiva le interazioni
+            if (actionPanel != null) {
+                if (infoPanel.isInfoVisible()) {
+                    actionPanel.setEndTurnButtonEnabled(false);
+                } else {
+                    actionPanel.setEndTurnButtonEnabled(true);
+                }
+            }
+            
+            // SEMPLIFICATO: Usa il metodo helper se il pannello è visibile
+            if (infoPanel.isInfoVisible()) {
+                positionAndScaleInfoPanel(infoPanel);
+            }
+        } 
+        else 
+        {            
+            // CORRETTO: Usa il layered pane invece del content pane diretto
+            JLayeredPane layeredPane = _frame.getLayeredPane();
+            if (layeredPane != null) 
+            {
+                InfoPanel newInfoPanel = new InfoPanel(_frame);
+                
+                // IMPORTANTE: Prima aggiungi al parent
+                layeredPane.add(newInfoPanel, JLayeredPane.POPUP_LAYER);
+                
+                // CRUCIALE: PRIMA imposta lo stato visibile interno
+                newInfoPanel.setVisible(true);
+                newInfoPanel._isVisible = true; // AGGIUNTO: Forza lo stato interno
+                
+                // NUOVO: Disattiva il bottone End Turn
+                if (actionPanel != null) {
+                    actionPanel.setEndTurnButtonEnabled(false);
+                }
+                
+                // SEMPLIFICATO: Usa il metodo helper per posizionamento e scaling
+                positionAndScaleInfoPanel(newInfoPanel);
+                
+                // Force immediate layout
+                SwingUtilities.invokeLater(() -> {
+                    layeredPane.revalidate();
+                    layeredPane.repaint();
+                });
+            }
+        }
+        
+        // Gestisci anche il riposizionamento di altre animazioni se necessario
+        if (actionPanel != null) 
+        {
+            if (actionPanel.isOverlayVisible()) 
+            {
+                SwingUtilities.invokeLater(() -> actionPanel.repositionOverlay());
+            }
+            
+            if (actionPanel.isTurnAnimationRunning()) 
+            {
+                SwingUtilities.invokeLater(() -> actionPanel.repositionTurnNotification());
+            }
+        }
+    }
+    
+    // AGGIORNATO: Recursively finds a component of the given type
     private static <T> T findComponentRecursive(Class<T> type, Container container) 
     {
         for (Component c : container.getComponents()) 
@@ -303,6 +559,17 @@ public class GameLauncher
                 if (found != null) return found;
             }
         }
+        
+        // AGGIUNTO: Cerca anche nel layered pane se il container è un JFrame
+        if (container instanceof JFrame) {
+            JFrame frame = (JFrame) container;
+            JLayeredPane layeredPane = frame.getLayeredPane();
+            if (layeredPane != null) {
+                T found = findComponentRecursive(type, layeredPane);
+                if (found != null) return found;
+            }
+        }
+        
         return null;
     }
 
@@ -318,7 +585,7 @@ public class GameLauncher
     private static class GradientMenuBar extends JMenuBar 
     {
         @Override
-        protected void paintComponent(Graphics g) 
+        protected void paintComponent(Graphics g)
         {
             Graphics2D g2d = (Graphics2D) g.create();
             Color dark = UIStyleUtils.BUTTON_BORDER_COLOR;
