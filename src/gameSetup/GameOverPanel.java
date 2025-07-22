@@ -10,30 +10,46 @@ import java.util.Map;
 
 import trivia.Question;
 
+
+/*
+ * GameOverPanel displays the game summary after a game ends,
+ * showing the winner, player rankings, and detailed stats for the winner.
+ * It also provides options to restart the game or exit.
+ */
+
+
 public class GameOverPanel extends JPanel implements GameLauncher.Scalable
 {
-    private Player _winner;
     private List<Player> _players;
+    
 
-
-    // ctor
-    public GameOverPanel(Player winner, List<Player> players)
+    // ctor semplificato
+    public GameOverPanel(List<Player> players)
     {
-        _winner = winner;
         _players = players;
         setupPanel();
     }
 
+    
+    // finds the winner
+    private Player getWinner() 
+    {
+        for (Player player : _players) 
+        {
+            if (player.isWinner()) {return player;}
+        }
+        return _players.get(0);
+    }
 
-    // Setup the main panel layout and components
+
+    // setup the main panel layout and components
     private void setupPanel()
     {
         setLayout(new BorderLayout(20, 20));
         setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
         setBackground(UIStyleUtils.BUTTON_COLOR);
 
-        // NUOVO: Nasconde i menu quando GameOverPanel è attivo
-        GameLauncher.hideGameMenus();
+        GameLauncher.setGameMenus(false);
 
         JPanel headerPanel = createHeaderPanel();
         add(headerPanel, BorderLayout.NORTH);
@@ -53,12 +69,14 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
 
+        Player winner = getWinner();
+
         JLabel winnerLabel = UIStyleUtils.createStyledLabel
         (
-            _winner.getName() + " WON!", 
+            winner.getName() + " WON!", 
             UIStyleUtils.TITLE_FONT.deriveFont(48f)
         );
-        winnerLabel.setForeground(_winner.getColor());
+        winnerLabel.setForeground(winner.getColor());
         winnerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(winnerLabel);
         panel.add(Box.createVerticalStrut(10));
@@ -79,16 +97,17 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
         JPanel panel = new JPanel(new GridLayout(1, 2, 20, 0));
         panel.setOpaque(false);
 
-        // Left side: Rankings
+        // left side: rankings
         JPanel rankingsPanel = createRankingsPanel();
         panel.add(rankingsPanel);
 
-        // Right side: Winner stats
+        // right side: winner stats
         JPanel statsPanel = createWinnerStatsPanel();
         panel.add(statsPanel);
 
         return panel;
     }
+
 
     // panel with player rankings
     private JPanel createRankingsPanel()
@@ -102,7 +121,7 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
 
-        // Title
+        // title
         JLabel titleLabel = new JLabel("Final Rankings");
         titleLabel.setFont(UIStyleUtils.PROMPT_FONT.deriveFont(Font.BOLD, 24f));
         titleLabel.setForeground(UIStyleUtils.BUTTON_COLOR);
@@ -111,10 +130,9 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
 
         panel.add(Box.createVerticalStrut(15));
 
-        // Sort players by score
-        _players.sort((p1, p2) -> Integer.compare(p2.getScore(), p1.getScore()));
 
-        // Add player rankings
+        _players.sort((p1, p2) -> Integer.compare(p2.getScore(), p1.getScore()));
+        // add player rankings
         for (int i = 0; i < _players.size(); i++) 
         {
             Player player = _players.get(i);
@@ -126,7 +144,7 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
                 default -> String.valueOf(i + 1) + "°";
             };
 
-            // Left side: position and name
+            // left side: position and name
             JPanel playerPanel = new JPanel(new BorderLayout(10, 0));
             playerPanel.setOpaque(false);
             playerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
@@ -145,7 +163,7 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             leftPanel.add(positionLabel);
             leftPanel.add(nameLabel);
             
-            // Right side: score
+            // right side: score
             JLabel scoreLabel = new JLabel(player.getScore() + " pts");
             scoreLabel.setFont(UIStyleUtils.PROMPT_FONT.deriveFont(18f));
             scoreLabel.setForeground(UIStyleUtils.BUTTON_COLOR);
@@ -155,10 +173,11 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             playerPanel.add(scoreLabel, BorderLayout.EAST);
             
             panel.add(playerPanel);
-            panel.add(Box.createVerticalStrut(5)); // Small gap between rows
+            panel.add(Box.createVerticalStrut(5));
         }
         return panel;
     }
+
 
     // adds a row with a label and value
     private void addStatRowWithBorder(JPanel parent, String label, String value)
@@ -183,6 +202,7 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
         parent.add(Box.createVerticalStrut(5)); // Small gap between rows
     }
 
+
     // creates the winner stats panel on the right side
     private JPanel createWinnerStatsPanel()
     {
@@ -195,7 +215,7 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
 
-        // Title
+        // title
         JLabel titleLabel = new JLabel("Winner Statistics");
         titleLabel.setFont(UIStyleUtils.PROMPT_FONT.deriveFont(Font.BOLD, 24f));
         titleLabel.setForeground(UIStyleUtils.BUTTON_COLOR);
@@ -203,11 +223,11 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
         panel.add(titleLabel);
         panel.add(Box.createVerticalStrut(15));
 
-        addStatRowWithBorder(panel, "Correct Answers:", String.valueOf(_winner.getCorrectAnswers()));
-        addStatRowWithBorder(panel, "Wrong Answers:", String.valueOf(_winner.getWrongAnswers()));
+        addStatRowWithBorder(panel, "Correct Answers:", String.valueOf(getWinner().getCorrectAnswers()));
+        addStatRowWithBorder(panel, "Wrong Answers:", String.valueOf(getWinner().getWrongAnswers()));
         
-        int totalAnswers = _winner.getCorrectAnswers() + _winner.getWrongAnswers();
-        float accuracy = totalAnswers > 0 ? _winner.getCorrectAnswers() / totalAnswers * 100 : 0;
+        int totalAnswers = getWinner().getCorrectAnswers() + getWinner().getWrongAnswers();
+        float accuracy = totalAnswers > 0 ? getWinner().getCorrectAnswers() / (float)totalAnswers * 100 : 0;
         addStatRowWithBorder(panel, "Accuracy:", String.format("%.1f%%", accuracy));
 
         panel.add(Box.createVerticalStrut(15));
@@ -221,8 +241,8 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
         
         panel.add(Box.createVerticalStrut(10));
         
-        Map<Question.Category, Integer> correctByCategory = _winner.getCorrectAnswersByCategory();
-        Map<Question.Category, Integer> wrongByCategory = _winner.getWrongAnswersByCategory();
+        Map<Question.Category, Integer> correctByCategory = getWinner().getCorrectAnswersByCategory();
+        Map<Question.Category, Integer> wrongByCategory = getWinner().getWrongAnswersByCategory();
         
         for (Question.Category category : Question.Category.values()) 
         {
@@ -250,8 +270,7 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
             if (parentFrame != null) 
             {
-                // NUOVO: Ripristina i menu prima di cambiare pannello
-                GameLauncher.showGameMenus();
+                GameLauncher.setGameMenus(true);
                 
                 parentFrame.getContentPane().removeAll();
                 PlayerSetupPanel setupPanel = new PlayerSetupPanel(parentFrame);
@@ -268,17 +287,13 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
             if (parentFrame != null) 
             {
-                // NUOVO: Ripristina i menu prima di riavviare
-                GameLauncher.showGameMenus();
-                
+                GameLauncher.setGameMenus(true);
                 PlayerSetupPanel setupPanel = new PlayerSetupPanel(parentFrame);
                 
                 try 
                 {
-                    // Set number of players
+                    // set players directly from the game state
                     setupPanel.setNumPlayers(_players.size());
-                    
-                    // Set player names and colors
                     for (int i = 0; i < _players.size(); i++) 
                     {
                         setupPanel.setPlayerName(i, _players.get(i).getName());
@@ -290,14 +305,12 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
                     parentFrame.revalidate();
                     parentFrame.repaint();
                     
-                    // Start game directly - molto più semplice!
                     setupPanel.startGame();
-                    
                 } 
                 catch (Exception ex) 
                 {
                     System.err.println("Error setting up restart: " + ex.getMessage());
-                    // Fallback to normal setup
+                    // fallback to normal setup
                     parentFrame.getContentPane().removeAll();
                     parentFrame.getContentPane().add(setupPanel);
                     parentFrame.revalidate();
@@ -306,7 +319,7 @@ public class GameOverPanel extends JPanel implements GameLauncher.Scalable
             }
         });
 
-        // Exit button
+        // exit button
         JButton exitButton = UIStyleUtils.createStyledButton("Exit Game");
         exitButton.addActionListener(_ -> 
         {

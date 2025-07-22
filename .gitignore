@@ -27,3 +27,10 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+# Java compiled class files
+*.class
+
+# Maven / Gradle build folders
+target/
+build/

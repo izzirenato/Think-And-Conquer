@@ -1,6 +1,5 @@
 package gameSetup;
 
-
 import map.MapInteractionHandler;
 import map.MapPanel;
 import map.Territory;
@@ -9,11 +8,9 @@ import trivia.*;
 import troops.*;
 
 import javax.swing.*;
-
-import java.awt.Cursor;
-import java.awt.Container;
-import java.awt.CardLayout;
-import java.awt.BorderLayout;
+import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,27 +30,27 @@ import java.util.HashSet;
 
 public class GameManager
 {
-    // Constants for point system
+    // constants for point system
     private static final int TERRITORY_POINTS = 100;
     private static final int CONTINENT_BONUS = 200;
     private static final int INITIAL_TROOPS_PER_PLAYER = 2;
     private static final int INITIAL_TERRITORIES_PER_PLAYER = 3;
     private static final int TROOPS_PER_TURN_DIVISOR = 200;
 
-    // Core game state
+    // core game state
     private final List<Player> _players;
     private final int _maxPoints;
     private int _currentPlayerIndex;
     private boolean _gameOver;
 
-    // Game components
+    // game components
     private MapPanel _mapPanel;
     private final QuestionDatabase _questionDatabase;
     private GameActionPanel _gameActionPanel;
     private GameActionHandler _actionHandler;
     private MapInteractionHandler _mapInteractionHandler;
 
-    // Action state management
+    // action state management
     public enum ActionType {NONE, ATTACK, MOVE}
     private ActionType _currentAction = ActionType.NONE;
     private Territory _sourceTerritory;
@@ -61,17 +58,20 @@ public class GameManager
     private int _selectedQuantity;
     private Map<String, Integer> _attackingTroops;
     private Map<String, Integer> _movingTroops;
+    private Map<Player, Set<String>> _playerControlledContinents = new HashMap<>();
 
-    // UI state management
+    // UI state management for disabling/enabling actions during quiz/duel
+    private ActionMap _originalActionMap;
+    private Map<String, Action> _disabledActions = new HashMap<>();
+    
+    // UI
     private Container _originalParent;
     private JPanel _originalContainer;
     private int _originalIndex = -1;
-
-    // Game progression tracking
-    private Map<Player, Set<String>> _playerControlledContinents = new HashMap<>();
-
-    // Stats panel
     private StatsPanel _statsPanel;
+    private List<JMenu> _disabledMenus = new ArrayList<>();
+    private KeyAdapter _currentKeyBlocker;
+
 
 
     // ctor
@@ -112,10 +112,10 @@ public class GameManager
         System.out.println("DEBUG: Initializing interaction handlers");
         setMapPanel(mapPanel);
         
-        // Use the existing method to create and initialize the handler
+        // use the existing method to create and initialize the handler
         _actionHandler.initializeMapInteraction(mapPanel);
         
-        // Get the newly created handler and set it in the map panel
+        // get the newly created handler and set it in the map panel
         MapInteractionHandler mapHandler = _actionHandler.getMapInteractionHandler();
         mapPanel.setInteractionHandler(mapHandler);
 
@@ -163,22 +163,22 @@ public class GameManager
             playerSpawnContinents.put(_players.get(i), continentNames.get(i));
         }
 
-        // Assign 3 territories from the spawn continent to each player
+        // assign 3 territories from the spawn continent to each player
         for (Player player : _players) 
         {
             String spawnContinent = playerSpawnContinents.get(player);
             List<Territory> continentTerritories = new ArrayList<>(continents.get(spawnContinent));
-            Collections.shuffle(continentTerritories); // Randomizza l'ordine dei territori
+            Collections.shuffle(continentTerritories);
 
             for (int i = 0; i < INITIAL_TERRITORIES_PER_PLAYER && i < continentTerritories.size(); i++) 
             {
                 Territory territory = continentTerritories.get(i);
                 territory.setOwner(player);
                 player.modifyPoints(TERRITORY_POINTS);
+
+                _mapPanel.updateTerritory(territory);
             }
         }
-
-        _mapPanel.loadTerritoryImages();
         _mapPanel.repaint();
     }
 
@@ -250,10 +250,14 @@ public class GameManager
         _movingTroops = new HashMap<>(troops);
         
         _mapPanel.setCurrentAction(ActionType.MOVE);
-        highlightValidMoveTargets();
         
-        _mapInteractionHandler.setCurrentAction(ActionType.MOVE);
-        _mapInteractionHandler.setMoveParameters(_movingTroops);
+        _gameActionPanel.hideActionButtons();
+        _gameActionPanel.setEndTurnButtonEnabled(false);
+        System.out.println("Buttons hidden before highlighting move targets");
+        
+        highlightValidTargets(ActionType.MOVE);
+        
+        _mapInteractionHandler.setSelectedTroops(_movingTroops);
         
         System.out.println("Move prepared with troops: " + _movingTroops);
     }
@@ -261,57 +265,27 @@ public class GameManager
 
     // starts an attack with a map of selected troops
     public void prepareAttackWithTroops(Territory source, Map<String, Integer> troops) 
-    {        
+    {
         _sourceTerritory = source;
         _currentAction = ActionType.ATTACK;
         _attackingTroops = new HashMap<>(troops);
-        
+
         _mapPanel.setCurrentAction(ActionType.ATTACK);
         
-        highlightValidAttackTargets();
-
-        _mapInteractionHandler.setCurrentAction(ActionType.ATTACK);
-        _mapInteractionHandler.setAttackParameters(_attackingTroops);
+        _gameActionPanel.hideActionButtons();
+        _gameActionPanel.setEndTurnButtonEnabled(false);
+        System.out.println("Buttons hidden before highlighting attack targets");
         
+        highlightValidTargets(ActionType.ATTACK);
+
+        _mapInteractionHandler.setSelectedTroops(_attackingTroops);
+
         System.out.println("Attack prepared with troops: " + _attackingTroops);
     }
 
 
-    //  public method that sorts out the action completion
-    public void completeAction(Territory targetTerritory) 
-    {
-        System.out.println("Attempting to complete action: " + _currentAction + 
-                          " on target: " + targetTerritory.getName());
-
-        if (_currentAction == ActionType.ATTACK) 
-        {
-            if (canAttackTerritory(_sourceTerritory, targetTerritory)) 
-            {
-                completeAttack(targetTerritory);
-            } 
-            else 
-            {
-                System.out.println("Invalid attack target: " + targetTerritory.getName());
-                resetGameState(); // Reset game state if target is invalid
-            }
-        } 
-        else if (_currentAction == ActionType.MOVE) 
-        {
-            if (validateMoveTarget(targetTerritory)) 
-            {
-                completeMoveAction(targetTerritory);
-            } 
-            else 
-            {
-                System.out.println("Invalid move target: " + targetTerritory.getName());
-                resetGameState(); // Reset game state if target is invalid
-            }
-        }
-    }
-
-
     // moves the troops
-    private void completeMoveAction(Territory targetTerritory) 
+    public void completeMove(Territory targetTerritory) 
     {
         System.out.println("Moving troops from " + _sourceTerritory.getName() + 
                          " to " + targetTerritory.getName() + ": " + _movingTroops);
@@ -335,19 +309,25 @@ public class GameManager
 
 
     // manages the attack action, storing the mapPanel
-    private void completeAttack(Territory targetTerritory) 
+    public void completeAttack(Territory targetTerritory) 
     {
         System.out.println("Starting attack on " + targetTerritory.getName() + 
-                            " from " + (_sourceTerritory != null ? _sourceTerritory.getName() : "null") +
-                            " with " + _selectedQuantity + " " + _selectedTroopType);
-        
+                        " from " + (_sourceTerritory != null ? _sourceTerritory.getName() : "null") +
+                        " with " + _selectedQuantity + " " + _selectedTroopType);
+    
         Map<String, Integer> attackingTroops = _attackingTroops;
-        
         Player attacker = getCurrentPlayer();
         Player defender = targetTerritory.getOwner();
 
+        JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(_mapPanel);
+        if (parentFrame != null) 
+        {
+            disableUIElements(parentFrame);
+        }
+
         _gameActionPanel.hideActionButtons();
 
+        // Store original UI state
         _originalParent = _mapPanel.getParent();
         Container parentContainer = _originalParent;
         _originalContainer = new JPanel(new BorderLayout());
@@ -368,7 +348,7 @@ public class GameManager
         JPanel mapContainer = new JPanel(new BorderLayout());
         mapContainer.add(_mapPanel, BorderLayout.CENTER);
         mainContainer.add(mapContainer, "MAP");
-         
+
         boolean isUndefended = (defender == null || targetTerritory.getTroopCount() == 0);
 
         // if the territory is undefended, it will be asked just one question
@@ -388,7 +368,7 @@ public class GameManager
             System.out.println("Attacking with " + totalAttackingTroops + " total troops, difficulty set to: " + 
                                 Question.getDifficultyText(questionDifficulty, false));
             
-            // Find the most common troop type for category selection
+            // find the most common troop type for category selection
             String mostCommonTroopType = null;
             int highestCount = 0;
             List<String> troopTypesWithHighestCount = new ArrayList<>();
@@ -414,60 +394,54 @@ public class GameManager
                     random.nextInt(troopTypesWithHighestCount.size()));
             }
             
-            // Get appropriate category based on most common attacking troop type
+            // get appropriate category based on most common attacking troop type
             Question.Category category = null;
             Troop attackingTroop = TroopFactory.getTroop(mostCommonTroopType);
             category = attackingTroop.getCategory();
-            System.out.println("Using category from most common troop type: " + 
-                                mostCommonTroopType + " (" + category.getDisplayName() + ")");
             
-            final Question question = _questionDatabase.getRandomQuestionWithExactDifficulty(category, questionDifficulty);
+            final Question.Category finalCategory = category; // ← Aggiungi questa riga
+            
+            final Question question = _questionDatabase.getRandomQuestion(category, questionDifficulty);
             System.out.println("Undefended territory question difficulty: " + 
                                 Question.getDifficultyText(questionDifficulty, false));
             
-
-
             QuizPanel quizPanel = new QuizPanel
             (
                 question,
                 correct -> 
                 {
-                    try 
+                    // restore UI
+                    restoreUIAfterBattle(parentContainer, mainContainer);
+
+                    attacker.updateStatistics(correct, finalCategory);
+                    
+                    if (correct) 
                     {
-                        // Restore UI
-                        parentContainer.remove(mainContainer);
-                        parentContainer.add(_mapPanel, _originalIndex);
-                        parentContainer.revalidate();
-                        parentContainer.repaint();
-                        _gameActionPanel.showEndTurnButton();
+                        // fake score to go to resolveBattleResults
+                        int attackerScore = 100;
+                        int defenderScore = 0;
                         
-                        if (correct) 
-                        {
-                            // Use resolveBattleResults for consistency - treat as perfect attacker score vs 0 defender score
-                            resolveBattleResults(targetTerritory, attacker, defender, attackingTroops, new HashMap<>(), 100, 0);
-                            attacker.incrementCorrectAnswers(question.getCategory());
-                        } 
-                        else 
-                        {
-                            // Mark attacking troops as used after failed attack
-                            for (String troopType : _attackingTroops.keySet()) 
-                            {
-                                _sourceTerritory.markTroopAsActed(troopType);
-                            }
-                            attacker.incrementWrongAnswers(question.getCategory());
-                        }
-                        resetGameState();
+                        resolveBattleResults(targetTerritory, attacker, defender, 
+                                           attackingTroops, new HashMap<>(), 
+                                           attackerScore, defenderScore);
                     } 
-                    catch (Exception e) 
+                    else 
                     {
-                        System.err.println("ERROR in attack callback: " + e.getMessage());
-                        e.printStackTrace();
+                        for (String troopType : attackingTroops.keySet()) 
+                        {
+                            _sourceTerritory.markTroopAsActed(troopType);
+                        }
+                        
+                        _mapPanel.updateTerritory(_sourceTerritory);
+                        System.out.println("Attack failed on undefended territory - troops marked as used but not lost");
                     }
+                    
+                    resetGameState();
                 },
                 getCurrentPlayer()
             );
 
-            // Add the question panel and show it
+            // add the question panel and show it
             mainContainer.add(quizPanel, "QUIZ");
             cardLayout.show(mainContainer, "QUIZ"); 
         } 
@@ -481,16 +455,12 @@ public class GameManager
                 attacker, 
                 defender, 
                 _questionDatabase,
-                (_, attackerScore, defenderScore) -> 
+                (attackerScore, defenderScore) ->
                 {
-                    // Restore the UI
-                    parentContainer.remove(mainContainer);
-                    parentContainer.add(_mapPanel, _originalIndex);
-                    parentContainer.revalidate();
-                    parentContainer.repaint();
-                    _gameActionPanel.showEndTurnButton();
+                    restoreUIAfterBattle(parentContainer, mainContainer);
 
-                    // Call the comprehensive battle resolution method
+                    _gameActionPanel.setEndTurnButtonEnabled(true);
+
                     resolveBattleResults
                     (
                         targetTerritory,
@@ -501,8 +471,7 @@ public class GameManager
                         attackerScore, 
                         defenderScore
                     );
-                    
-                    // Reset game state after battle is resolved
+
                     resetGameState();
                 },
                 attackingTroops,
@@ -525,10 +494,7 @@ public class GameManager
     public void resolveBattleResults(Territory targetTerritory, Player attacker, Player defender,
                                     Map<String, Integer> attackingTroops, Map<String, Integer> defendingTroops,
                                     int attackerScore, int defenderScore) 
-    {
-        
-        System.out.println("Resolving battle: Attacker=" + attackerScore + " vs Defender=" + defenderScore);
-        
+    {        
         Map<String, Integer> survivingAttackerTroops;
         Map<String, Integer> survivingDefenderTroops;
         boolean attackerWins;
@@ -590,8 +556,9 @@ public class GameManager
         // apply the battle results
         applyBattleResults(targetTerritory, attacker, defender, survivingAttackerTroops, survivingDefenderTroops, attackerWins);
         
-        // Add post-battle checks that were previously duplicated
-        if (attackerWins) {
+        // add post-battle checks that were previously duplicated
+        if (attackerWins)
+        {
             attacker.modifyPoints(TERRITORY_POINTS);
             checkVictory(attacker);
         }
@@ -638,7 +605,6 @@ public class GameManager
                 if (entry.getValue() > 0) 
                 {
                     targetTerritory.addTroops(entry.getKey(), entry.getValue());
-                    // No markTroopAsActed call here (good)
                 }
             }
             
@@ -664,7 +630,7 @@ public class GameManager
     private Map<String, Integer> calculateWinnerTroopLosses(Map<String, Integer> originalTroops, 
                                                         int winnerScore, int loserScore) 
     {
-        // Special case: opponent scored 0, winner keeps most troops
+        // if the loser scored 0, the winner keeps all his troops
         if (loserScore == 0) {return originalTroops;}
 
         // calculate dominance ratio
@@ -672,8 +638,8 @@ public class GameManager
         float dominanceRatio = (winnerScore - loserScore) / totalPoints;
         
         // converts dominance ratio to a survival rate
-        float baseSurvival = 0.4f;                          // Minimum survival rate
-        float bonusSurvival = dominanceRatio * 0.4f;        // Up to 40% bonus
+        float baseSurvival = 0.2f;
+        float bonusSurvival = dominanceRatio * 0.4f;
         float survivalRate = Math.max(0.3f, Math.min(0.8f, baseSurvival + bonusSurvival));
         
         System.out.println("Winner survival: Dominance=" + String.format("%.2f", dominanceRatio) + 
@@ -698,7 +664,7 @@ public class GameManager
     {
         Map<String, Integer> selectedTroops = new HashMap<>();
 
-        // Create list of all individual troops
+        // create list of all individual troops
         List<String> allTroops = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : originalTroops.entrySet())
         {
@@ -711,7 +677,7 @@ public class GameManager
             }
         }
         
-        // Shuffle and select the requested count
+        // shuffle and select the requested count
         Collections.shuffle(allTroops);
         int troopsToSelect = Math.min(count, allTroops.size());
         
@@ -731,34 +697,38 @@ public class GameManager
     // checks the win
     private void checkVictory(Player player)
     {
-        // Controlla se il giocatore ha raggiunto i punti massimi
         boolean wonByPoints = player.getPoints() >= _maxPoints;
         
-        // Controlla se è l'ultimo giocatore rimasto
-        long remainingPlayers = _players.stream().filter(p -> !p.isEliminated()).count();
+        int remainingPlayers = 0;
+        for (Player p : _players) 
+        {
+            if (!p.isEliminated()) {remainingPlayers++;}
+        }
         boolean lastPlayerStanding = remainingPlayers <= 1;
         
         if (wonByPoints || lastPlayerStanding)
         {
             _gameOver = true;
+            player.setWinner(true);
             
             System.out.println(player.getName() + " wins! " + 
                 (wonByPoints ? "Points victory: " + player.getPoints() + "/" + _maxPoints : 
                  "Last player standing!"));
             
-            // Get the main game frame
+            // get the main game frame
             JFrame gameFrame = (JFrame) SwingUtilities.getWindowAncestor(_mapPanel);
             
-            if (gameFrame != null) {
-                // Create the game over panel
-                GameOverPanel gameOverPanel = new GameOverPanel(player, _players);
+            if (gameFrame != null) 
+            {
+                // create the game over panel - SOLO UN PARAMETRO
+                GameOverPanel gameOverPanel = new GameOverPanel(_players);
                 
-                // Replace the current content with the game over panel
+                // replace the current content with the game over panel
                 gameFrame.getContentPane().removeAll();
                 gameFrame.getContentPane().setLayout(new BorderLayout());
                 gameFrame.getContentPane().add(gameOverPanel, BorderLayout.CENTER);
                 
-                // Scale the panel to fit the frame
+                // scale the panel to fit the frame
                 gameOverPanel.scale(gameFrame.getWidth(), gameFrame.getHeight());
                 
                 gameFrame.revalidate();
@@ -773,22 +743,21 @@ public class GameManager
     {
         String targetContinent = conqueredTerritory.getContinent();
         
-        // Get all territories in this continent
+        // get all territories in this continent
         Map<String, List<Territory>> continents = _mapPanel.getWorldMapData().getContinentTerritories();
         List<Territory> continentTerritories = continents.get(targetContinent);
         
         if (ownsAllTerritories(conqueror, continentTerritories)) 
         {
-            // Award bonus points for continent control
+            if (!_playerControlledContinents.containsKey(conqueror)) 
+            {
+                _playerControlledContinents.put(conqueror, new HashSet<>());
+            }
+            _playerControlledContinents.get(conqueror).add(targetContinent);
+    
             conqueror.modifyPoints(CONTINENT_BONUS);
             System.out.println(conqueror.getName() + " completed continent '" + 
                               targetContinent + "' and receives " + CONTINENT_BONUS + " bonus points!");
-            
-            // Update UI if needed
-            if (_gameActionPanel != null) 
-            {
-                _gameActionPanel.updatePlayerInfo();
-            }
         }
     }
 
@@ -798,7 +767,7 @@ public class GameManager
     {
         if (defender == null) return;
         
-        // Initialize if needed
+        // initialize if needed
         if (!_playerControlledContinents.containsKey(defender)) 
         {
             _playerControlledContinents.put(defender, new HashSet<>());
@@ -808,7 +777,7 @@ public class GameManager
         String continent = lostTerritory.getContinent();
         Set<String> controlledContinents = _playerControlledContinents.get(defender);
         
-        // If player doesn't control this continent, nothing to check
+        // if player doesn't control this continent, nothing to check
         if (!controlledContinents.contains(continent)) {return;}
         
         Map<String, List<Territory>> continents = _mapPanel.getWorldMapData().getContinentTerritories();
@@ -816,76 +785,66 @@ public class GameManager
         
         if (!ownsAllTerritories(defender, continentTerritories))
         {
-            // Player has lost control of the continent
+            // player has lost control of the continent
             controlledContinents.remove(continent);
             defender.modifyPoints(-CONTINENT_BONUS);
             
             System.out.println(defender.getName() + " lost control of continent '" + 
                               continent + "' and loses " + CONTINENT_BONUS + " points!");
-            
-            // Update UI
-            if (_gameActionPanel != null) 
-            {
-                _gameActionPanel.updatePlayerInfo();
-            }
         }
     }
 
 
-    // finds the valid targets and sends to the MapInteractionHandler to let them highlight
-    private void highlightValidAttackTargets() 
+    // highlights valid targets for the current action
+    private void highlightValidTargets(ActionType actionType) 
     {
         List<Territory> validTargets = new ArrayList<>();
-        for (Territory neighbor : _sourceTerritory.getNeighbors()) 
+        
+        if (actionType == ActionType.ATTACK) 
         {
-            if (neighbor.getOwner() != getCurrentPlayer()) 
+            for (Territory neighbor : _sourceTerritory.getNeighbors())
+             {
+                if (neighbor.getOwner() != getCurrentPlayer()) 
+                {
+                    validTargets.add(neighbor);
+                }
+            }
+        } 
+        else if (actionType == ActionType.MOVE)
+        {
+            for (Territory neighbor : _sourceTerritory.getNeighbors()) 
             {
-                validTargets.add(neighbor);
+                if (neighbor.getOwner() == getCurrentPlayer()) 
+                {
+                    validTargets.add(neighbor);
+                }
             }
         }
-        _mapInteractionHandler = _mapPanel.getInteractionHandler();
         
-        
-        _mapInteractionHandler.setCurrentAction(ActionType.ATTACK);
-        _mapInteractionHandler.setSourceTerritory(_sourceTerritory);
-        _mapInteractionHandler.highlightTargets(_sourceTerritory, validTargets);
-            
-        System.out.println("Highlighting " + validTargets.size() + 
-                            " attack targets from " + _sourceTerritory.getName());
-    }
-
-
-    // finds the valid targets and sends to the MapInteractionHandler to let them highlight
-    private void highlightValidMoveTargets() 
-    {
-        List<Territory> validTargets = new ArrayList<>();
-        for (Territory neighbor : _sourceTerritory.getNeighbors()) 
-        {
-            if (neighbor.getOwner() == getCurrentPlayer()) 
-            {
-                validTargets.add(neighbor);
-            }
-        }
         _mapInteractionHandler = _mapPanel.getInteractionHandler();
-
-        // Set the current action to ensure proper coloring
-        _mapInteractionHandler.setCurrentAction(ActionType.MOVE);
+        _mapInteractionHandler.setCurrentAction(actionType);
         _mapInteractionHandler.setSourceTerritory(_sourceTerritory);
-        _mapInteractionHandler.highlightTargets(_sourceTerritory, validTargets);
-
-        System.out.println("Highlighting " + validTargets.size() +
-                            " move targets from " + _sourceTerritory.getName());
+        _mapInteractionHandler.highlightTerritories(validTargets, _sourceTerritory);
+        
+        System.out.println("Highlighting " + validTargets.size() + " " + 
+                          actionType.toString().toLowerCase() + " targets from " + _sourceTerritory.getName());
     }
 
 
     // resets the game state after an action is completed
-    private void resetGameState() 
+    public void resetGameState() 
     {
         resetActionState();
         _attackingTroops = null;
         _movingTroops = null;
 
-        _mapInteractionHandler.clearSelection(); 
+        _mapInteractionHandler.clearSelection();
+        
+        Territory selectedTerritory = _mapPanel.getSelectedTerritory();
+        if (selectedTerritory != null && selectedTerritory.getOwner() == getCurrentPlayer()) 
+        {
+            _gameActionPanel.updateButtonsForSelectedTerritory(selectedTerritory);
+        }
     }
 
 
@@ -899,7 +858,8 @@ public class GameManager
         
         _mapPanel.setCursor(Cursor.getDefaultCursor());  
         _mapPanel.setCurrentAction(_currentAction);
-        _gameActionPanel.showEndTurnButton();
+        
+        _gameActionPanel.setEndTurnButtonEnabled(true);
     }
 
 
@@ -914,7 +874,7 @@ public class GameManager
 
 
     // Validates if a territory is a valid move target, helper
-    private boolean validateMoveTarget(Territory target)
+    public boolean validateMoveTarget(Territory target)
     {
         return target != null && 
                _sourceTerritory != null &&
@@ -970,10 +930,7 @@ public class GameManager
         List<Territory> playerTerritories = new ArrayList<>();
         for (Territory territory : _mapPanel.getTerritories()) 
         {
-            if (territory.getOwner() == player) 
-            {
-                playerTerritories.add(territory);
-            }
+            if (territory.getOwner() == player) {playerTerritories.add(territory);}
         }
         return playerTerritories;
     }
@@ -1029,13 +986,15 @@ public class GameManager
         return total;
     }
 
-        // NUOVO METODO: Controlla se un giocatore è stato eliminato
-    private void checkPlayerElimination(Player player) {
-        if (player == null || player.isEliminated()) return;
-        
+
+    // check if a player finished all his territories
+    private void checkPlayerElimination(Player player) 
+    {
+        if (player == null || player.isEliminated()) {return;}
+
         List<Territory> playerTerritories = getPlayerTerritories(player);
-        if (playerTerritories.isEmpty()) {
-            // Il giocatore non ha più territori, eliminalo
+        if (playerTerritories.isEmpty()) 
+        {
             player.eliminate();
             System.out.println(player.getName() + " has been eliminated from the game!");
             
@@ -1045,19 +1004,129 @@ public class GameManager
     }
 
 
+    // disable UI elements
+    private void disableUIElements(JFrame parentFrame) 
+    {
+        JRootPane rootPane = parentFrame.getRootPane();
+        _originalActionMap = rootPane.getActionMap();
+        
+        String[] actionsToDisable = {"END_TURN", "TOGGLE_STATS", "TOGGLE_INFO"};
+        _gameActionPanel.setEndTurnButtonEnabled(false);
+        _disabledActions.clear();
+        
+        for (String actionKey : actionsToDisable) 
+        {
+            Action originalAction = _originalActionMap.get(actionKey);
+            if (originalAction != null) 
+            {
+                _disabledActions.put(actionKey, originalAction);
+                _originalActionMap.put(actionKey, null);
+            }
+        }
+
+        _currentKeyBlocker = new KeyAdapter() 
+        {
+            @Override
+            public void keyPressed(KeyEvent e) 
+            {
+                // Block specific problematic keys during quiz/duel
+                int keyCode = e.getKeyCode();
+                if (
+                    keyCode == KeyEvent.VK_SPACE ||    // End turn
+                    keyCode == KeyEvent.VK_G ||        // Stats toggle
+                    keyCode == KeyEvent.VK_I           // Info toggle
+                    )
+                {
+                    e.consume(); // Prevent the key event from being processed
+                    System.out.println("Blocked key: " + KeyEvent.getKeyText(keyCode));
+                }
+            }
+        };
+
+        rootPane.addKeyListener(_currentKeyBlocker);
+        
+        // Disable menu bar items
+        JMenuBar menuBar = parentFrame.getJMenuBar();
+        if (menuBar != null) 
+        {
+            _disabledMenus.clear();
+            
+            for (int i = 0; i < menuBar.getMenuCount(); i++) 
+            {
+                JMenu menu = menuBar.getMenu(i);
+                if (menu != null) 
+                {
+                    String menuText = menu.getText();
+                    // Disable both "Game" and "Info" menus completely
+                    if ("Game".equalsIgnoreCase(menuText) || "Info".equalsIgnoreCase(menuText)) 
+                    {
+                        if (menu.isEnabled()) 
+                        {
+                            menu.setEnabled(false);
+                            _disabledMenus.add(menu);
+                            System.out.println("Disabled menu: " + menuText);
+                        }
+                    }
+                }
+            }
+        }
+        
+        System.out.println("UI elements disabled during quiz/duel");
+    }
+
+
+    // restores the UI after a battle, re-enabling buttons and menus
+    private void restoreUIAfterBattle(Container parentContainer, JPanel mainContainer) 
+    {
+        parentContainer.remove(mainContainer);
+        parentContainer.add(_mapPanel, _originalIndex);
+        parentContainer.revalidate();
+        parentContainer.repaint();
+
+        // re-enable end turn button
+        _gameActionPanel.setEndTurnButtonEnabled(true);
+        
+        if (_originalActionMap != null && !_disabledActions.isEmpty()) 
+        {
+            for (Map.Entry<String, Action> entry : _disabledActions.entrySet()) 
+            {
+                _originalActionMap.put(entry.getKey(), entry.getValue());
+                System.out.println("Restored action: " + entry.getKey());
+            }
+            _disabledActions.clear();
+            _originalActionMap = null;
+        }
+        
+        for (JMenu menu : _disabledMenus) 
+        {
+            menu.setEnabled(true);
+            System.out.println("Re-enabled menu: " + menu.getText());
+        }
+        _disabledMenus.clear();
+        
+        if (_currentKeyBlocker != null) 
+        {
+            JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(_mapPanel);
+            if (parentFrame != null) 
+            {
+                parentFrame.getRootPane().removeKeyListener(_currentKeyBlocker);
+            }
+            _currentKeyBlocker = null;
+        }
+        
+        System.out.println("UI elements restored after quiz/duel");
+    }
+
 
     // public getters and setters
     public int getMaxPoints() {return _maxPoints;}
     public List<Player> getPlayers() {return new ArrayList<>(_players);}
+    public Player getCurrentPlayer() {return _players.get(_currentPlayerIndex);}
     public GameActionPanel getGameActionPanel() {return _gameActionPanel;}
     public GameActionHandler getActionHandler() {return _actionHandler;}
+    public Territory getSourceTerritory() {return _sourceTerritory;}
     public MapPanel getMapPanel() {return _mapPanel;}
-    public Player getCurrentPlayer() {return _players.get(_currentPlayerIndex);}
     public void setMapPanel(MapPanel mapPanel) {_mapPanel = Objects.requireNonNull(mapPanel);}
     public void setGameActionPanel(GameActionPanel panel) {_gameActionPanel = panel;}
-    public void setStatsPanel(StatsPanel statsPanel) {
-        _statsPanel = statsPanel;
-    }
-
-
+    public void setStatsPanel(StatsPanel statsPanel) {_statsPanel = statsPanel;}
 }

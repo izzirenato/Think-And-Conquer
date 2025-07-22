@@ -10,14 +10,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import map.*;
+import map.Territory;
+import map.MapPanel;
+
 import troops.TroopFactory;
 
 
 /*
  * GameActionPanel serves as the control panel for the game interface.
  * It displays action buttons, and manages action overlays
- * for deploying, moving, and attacking with troops.
+ * for deploying, moving, and attacking with troops
  */
 
 
@@ -25,7 +27,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
 {
     // constants for panel dimensions
     private static final int CONTROL_PANEL_HEIGHT = 75;
-    private static final int OVERLAY_WIDTH = 600;
+    private static final int OVERLAY_WIDTH = 525;
     private static final int OVERLAY_HEIGHT = 525;
     
     // core game references
@@ -45,8 +47,8 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     private JButton _attackButton;
     private JPanel _actionOverlay;
     private JPanel _blockingPanel;
-    private AnimatedEllipse _notificationEllipse; // RINOMINATO: ora gestisce sia turno che eliminazione
-    
+    private AnimatedEllipse _notificationEllipse;
+
     // fonts
     private final Font _controlFont;
     private final Font _titleFont;
@@ -67,11 +69,19 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         initializeUIComponents();
         initializeActionListeners();
         initializeOverlay();
-        initializeNotificationEllipse(); // RINOMINATO
+        initializeNotificationEllipse();
         scale(frame.getWidth(), CONTROL_PANEL_HEIGHT);
         hideEverything();
-        updatePlayerInfo();
+        
 
+        // if the info panel is visible, disable all interactions
+        SwingUtilities.invokeLater(() -> 
+        {
+            updatePlayerInfo();
+            
+            InfoPanel infoPanel = findInfoPanel();
+            if (infoPanel != null && infoPanel.isInfoVisible()) {disableAllInteractions();}
+        });
 
         SwingUtilities.invokeLater(() -> 
         {
@@ -104,17 +114,36 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         _deployButton = UIStyleUtils.createStyledButton("Deploy");
         _endTurnButton = UIStyleUtils.createStyledButton("End Turn");
         
-        // Initially hide action buttons, they will be shown only whenever the player clicks on his territory
+        // initially hide action buttons, they will be shown only whenever the player clicks on his territory
         _moveButton.setVisible(false);
         _attackButton.setVisible(false);
         _deployButton.setVisible(false);
 
-        // Add components to panel, the positions will be set in scale() method
+        // add components to panel, the positions will be set in scale() method
         add(_currentPlayerLabel);
         add(_moveButton);
         add(_attackButton);
         add(_deployButton);
         add(_endTurnButton);
+    }
+
+
+    // sets up action listeners for all buttons
+    private void initializeActionListeners() 
+    {
+        _endTurnButton.addActionListener(_ -> handleEndTurn());
+        _deployButton.addActionListener(_ -> openOverlay("Deploy Troops", false));
+        _moveButton.addActionListener(_ -> 
+        {
+            Territory selected = _mapPanel.getSelectedTerritory();
+            if (selected != null && selected.hasTroopsForAction()) {openOverlay("Move Troops", true);}
+        });
+        
+        _attackButton.addActionListener(_ -> 
+        {
+            Territory selected = _mapPanel.getSelectedTerritory();
+            if (selected != null && selected.hasTroopsForAction()) {openOverlay("Attack With", false);}
+        });
     }
 
 
@@ -130,199 +159,6 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
                 repositionOverlay();
             }
         });
-    }
-
-
-    // sets up action listeners for all buttons
-    private void initializeActionListeners() 
-    {
-        _endTurnButton.addActionListener(_ -> handleEndTurn());
-        
-        _deployButton.addActionListener(_ -> openOverlay("Deploy Troops", false));
-        
-        _moveButton.addActionListener(_ -> 
-        {
-            Territory selected = _mapPanel.getSelectedTerritory();
-            if (selected != null && selected.hasMovableTroops()) 
-            {
-                openOverlay("Move Troops", true);
-            }
-        });
-        
-        _attackButton.addActionListener(_ -> 
-        {
-            Territory selected = _mapPanel.getSelectedTerritory();
-            if (selected != null && selected.hasAttackableTroops()) 
-            {
-                openOverlay("Attack With", false);
-            }
-        });
-    }
-
-
-    // RINOMINATO E UNIFICATO: inizializza l'ellisse per tutte le notifiche
-    private void initializeNotificationEllipse()
-    {
-        _notificationEllipse = new AnimatedEllipse("", Color.WHITE, UIStyleUtils.BUTTON_COLOR);
-        
-        // Trova il JRootPane che contiene la MapPanel
-        Container parent = _mapPanel.getParent();
-        while (parent != null && !(parent instanceof JRootPane)) {
-            parent = parent.getParent();
-        }
-        
-        if (parent instanceof JRootPane) {
-            JRootPane rootPane = (JRootPane) parent;
-            
-            // Crea un glass pane personalizzato
-            JPanel mapGlassPane = new JPanel() {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    // Non disegnare nulla di default
-                }
-                
-                @Override
-                public boolean isOptimizedDrawingEnabled() {
-                    return false; // Permette sovrapposizioni
-                }
-            };
-            
-            mapGlassPane.setOpaque(false);
-            mapGlassPane.setLayout(null);
-            mapGlassPane.setVisible(false);
-            
-            // Aggiungi l'ellisse al glass pane
-            mapGlassPane.add(_notificationEllipse);
-            
-            // Imposta il glass pane
-            rootPane.setGlassPane(mapGlassPane);
-        } else {
-            // Fallback: usa il layered pane del frame principale
-            _parentFrame.getLayeredPane().add(_notificationEllipse, JLayeredPane.POPUP_LAYER);
-        }
-    }
-
-
-    // handles the end turn button action
-    private void handleEndTurn() 
-    {
-        if (_gameManager != null) 
-        {
-            _mapPanel.getInteractionHandler().clearSelection();
-            hideActionButtons();
-            _gameManager.nextTurn();
-
-            showTurnNotification(() -> 
-            {
-                updatePlayerInfo();
-                showEndTurnButton();
-            });
-        }
-    }
-
-
-    // Mostra la notifica di cambio turno
-    private void showTurnNotification(Runnable onComplete)
-    {
-        Player currentPlayer = _gameManager.getCurrentPlayer();
-        if (currentPlayer == null) {
-            if (onComplete != null) onComplete.run();
-            return;
-        }
-        
-        // Disabilita le interazioni
-        disableAllInteractions();
-        
-        // Configura l'ellisse per il cambio turno
-        String turnText = currentPlayer.getName() + "'s turn";
-        _notificationEllipse._text = turnText;
-        _notificationEllipse._ellipseColor = currentPlayer.getColor();
-        _notificationEllipse._textColor = UIStyleUtils.BUTTON_COLOR;
-        
-        // Mostra l'ellisse
-        showNotificationEllipse(() -> {
-            // Riabilita le interazioni
-            enableAllInteractions();
-            if (onComplete != null) onComplete.run();
-        });
-    }
-
-    // NUOVO METODO UNIFICATO: Gestisce la visualizzazione dell'ellisse
-    private void showNotificationEllipse(Runnable onComplete) 
-    {
-        // Calcola la posizione della MapPanel relativa al glass pane
-        Point mapLocationInGlass = SwingUtilities.convertPoint(
-            _mapPanel.getParent(), 
-            _mapPanel.getX(), 
-            _mapPanel.getY(), 
-            _parentFrame.getRootPane().getGlassPane()
-        );
-        
-        // Posiziona l'ellisse esattamente sopra la MapPanel
-        _notificationEllipse.setBounds(
-            mapLocationInGlass.x, 
-            mapLocationInGlass.y, 
-            _mapPanel.getWidth(), 
-            _mapPanel.getHeight()
-        );
-        
-        // Mostra il glass pane
-        _parentFrame.getRootPane().getGlassPane().setVisible(true);
-        
-        // Avvia l'animazione
-        _notificationEllipse.startAnimation(() -> {
-            // Nascondi il glass pane
-            _parentFrame.getRootPane().getGlassPane().setVisible(false);
-            
-            if (onComplete != null) onComplete.run();
-        });
-    }
-
-    // NUOVO METODO: Mostra notifica di eliminazione
-    public void showEliminationNotification(String eliminationText, Color playerColor, Runnable onComplete) 
-    {
-        if (_notificationEllipse == null) {
-            if (onComplete != null) onComplete.run();
-            return;
-        }
-        
-        // Disabilita le interazioni
-        disableAllInteractions();
-        
-        // Configura l'ellisse per l'eliminazione
-        _notificationEllipse._text = eliminationText;
-        _notificationEllipse._ellipseColor = Color.BLACK; // Ellisse nera per l'eliminazione
-        _notificationEllipse._textColor = Color.WHITE;    // Testo bianco (gestito in AnimatedEllipse per colorare il nome)
-        
-        // Posiziona l'ellisse sopra la MapPanel
-        showNotificationEllipse(() -> {
-            // Riabilita le interazioni
-            enableAllInteractions();
-            if (onComplete != null) onComplete.run();
-        });
-    }
-
-
-    // NUOVO: Metodo per attivare/disattivare il bottone End Turn
-    public void setEndTurnButtonEnabled(boolean enabled) {
-        if (_endTurnButton != null) {
-            _endTurnButton.setEnabled(enabled);
-        }
-    }
-
-    // NUOVO: Metodi pubblici per gestire le interazioni
-    public void disableAllInteractions() {
-        // Nascondi tutti i bottoni
-        _endTurnButton.setVisible(false);
-        _moveButton.setVisible(false);
-        _attackButton.setVisible(false);
-        _deployButton.setVisible(false);
-
-        _mapPanel.setEnabled(false);
-    }
-
-    public void enableAllInteractions() {
-        _mapPanel.setEnabled(true);
     }
 
 
@@ -362,18 +198,12 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
             @Override
             public void mousePressed(MouseEvent e) 
             {
-                if (!_actionOverlay.getBounds().contains(e.getPoint())) 
-                {
-                    hideOverlay();
-                }
+                if (!_actionOverlay.getBounds().contains(e.getPoint())) {hideOverlay();}
                 e.consume();
             }
             
             @Override
-            public void mouseReleased(MouseEvent e) 
-            {
-                e.consume();
-            }
+            public void mouseReleased(MouseEvent e) {e.consume();}
         });
         
         _parentFrame.getLayeredPane().add(_blockingPanel, JLayeredPane.MODAL_LAYER - 1);
@@ -381,113 +211,278 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     }
 
 
-    // repositions the overlay to be centered on the map panel
-    public void repositionOverlay() 
+    // initializes the notification ellipse for turn changes and eliminations
+    private void initializeNotificationEllipse()
     {
-        if (_actionOverlay == null) {
-            return;
-        }
+        _notificationEllipse = new AnimatedEllipse("", Color.WHITE, UIStyleUtils.BUTTON_COLOR);
         
-        if (!_actionOverlay.isVisible()) {
-            return;
-        }
-
-        // get MapPanel's position and dimensions relative to the layered pane
-        Point mapLocationInFrame = SwingUtilities.convertPoint(_mapPanel, 0, 0, _parentFrame.getLayeredPane());
-        int mapWidth = _mapPanel.getWidth();
-        int mapHeight = _mapPanel.getHeight();
+        Container parent = _mapPanel.getParent();
+        while (parent != null && !(parent instanceof JRootPane)) {parent = parent.getParent();}
         
-        // calculate overlay size based on MapPanel dimensions
-        int overlayWidth = Math.min(OVERLAY_WIDTH, (int)(mapWidth * 0.85));
-        int overlayHeight = Math.min(OVERLAY_HEIGHT, (int)(mapHeight * 0.75));
-
-        // ensure minimum sizes
-        final int finalOverlayWidth = Math.max(overlayWidth, 400);
-        final int finalOverlayHeight = Math.max(overlayHeight, 350);
-        
-        // calculate center of the mapPanel
-        int mapCenterX = mapLocationInFrame.x + mapWidth / 2;
-        int mapCenterY = mapLocationInFrame.y + mapHeight / 2;
-        
-        // shift the vertical position down slightly for better visibility
-        float verticalShiftPercentage = 0.07f;
-        int verticalShift = (int)(mapHeight * verticalShiftPercentage);
-        
-        // position overlay with its center at the map's center, shifted down
-        int x = mapCenterX - finalOverlayWidth / 2;
-        int y = mapCenterY - finalOverlayHeight / 2 + verticalShift;
-        
-        // ensure overlay stays within map bounds with padding
-        int mapLeft = mapLocationInFrame.x + 10;
-        int mapRight = mapLocationInFrame.x + mapWidth - 10;
-        int mapTop = mapLocationInFrame.y + 10;
-        int mapBottom = mapLocationInFrame.y + mapHeight - 10;
-        
-        x = Math.max(mapLeft, Math.min(x, mapRight - finalOverlayWidth));
-        y = Math.max(mapTop, Math.min(y, mapBottom - finalOverlayHeight));
-        
-        _actionOverlay.setBounds(x, y, finalOverlayWidth, finalOverlayHeight);
-        
-        // Make blocking panel cover the entire layered pane area
-        _blockingPanel.setBounds(0, 0, _parentFrame.getWidth(), _parentFrame.getHeight());
-        
-        // REMOVE the SwingUtilities.invokeLater that causes the loop
-        // Just scale the components directly without triggering more events
-        scaleOverlayComponents(finalOverlayWidth, finalOverlayHeight);
-    }
-
-    
-    // scales the overlay components based on the new overlay size
-    private void scaleOverlayComponents(int overlayWidth, int overlayHeight) 
-    {
-        if (!isOverlayVisible()) return;
-
-        // Find all sliders in the overlay and resize them
-        scaleComponentsRecursively(_actionOverlay, overlayWidth, overlayHeight);
-    }
-
-    
-    // recursively scales components within the given container
-    private void scaleComponentsRecursively(Container container, int overlayWidth, int overlayHeight) 
-    {
-        for (Component comp : container.getComponents()) 
+        if (parent instanceof JRootPane) 
         {
-            if (comp instanceof JSlider) 
+            JRootPane rootPane = (JRootPane) parent;
+
+            JPanel mapGlassPane = new JPanel() 
             {
-                JSlider slider = (JSlider) comp;
-                int newSliderWidth = Math.max(150, (int)(overlayWidth * 0.35));
-                slider.setPreferredSize(new Dimension(newSliderWidth, 40));
-            }
-            else if (comp instanceof JLabel) 
-            {
-                JLabel label = (JLabel) comp;
+                @Override
+                protected void paintComponent(Graphics g) {}
                 
-                String labelText = label.getText();
-                if (labelText != null && labelText.contains(":")) 
+                @Override
+                public boolean isOptimizedDrawingEnabled() {return false;}
+            };
+            
+            mapGlassPane.setOpaque(false);
+            mapGlassPane.setLayout(null);
+            mapGlassPane.setVisible(false);
+            mapGlassPane.add(_notificationEllipse);
+            rootPane.setGlassPane(mapGlassPane);
+        } 
+        else {_parentFrame.getLayeredPane().add(_notificationEllipse, JLayeredPane.POPUP_LAYER);}
+    }
+
+
+    // handles the end turn button action
+    private void handleEndTurn() 
+    {
+        if (_gameManager != null) 
+        {
+            _mapPanel.getInteractionHandler().clearSelection();
+            hideActionButtons();
+            _gameManager.nextTurn();
+
+            showTurnNotification(() -> 
+            {
+                updatePlayerInfo();
+            });
+        }
+    }
+
+
+    // shows the turn notification ellipse
+    private void showTurnNotification(Runnable onComplete)
+    {
+        Player currentPlayer = _gameManager.getCurrentPlayer();
+        if (currentPlayer == null) {return;}
+        
+        disableAllInteractions();
+        
+        String turnText = currentPlayer.getName() + "'s turn";
+        _notificationEllipse._text = turnText;
+        _notificationEllipse._ellipseColor = currentPlayer.getColor();
+        _notificationEllipse._textColor = UIStyleUtils.BUTTON_COLOR;
+
+        showNotificationEllipse(onComplete);
+    }
+
+
+    // manages the display of the notification ellipse
+    private void showNotificationEllipse(Runnable onComplete) 
+    {
+        Point mapLocationInGlass = SwingUtilities.convertPoint
+        (
+            _mapPanel.getParent(), 
+            _mapPanel.getX(), 
+            _mapPanel.getY(), 
+            _parentFrame.getRootPane().getGlassPane()
+        );
+        
+        _notificationEllipse.setBounds
+        (
+            mapLocationInGlass.x, 
+            mapLocationInGlass.y, 
+            _mapPanel.getWidth(), 
+            _mapPanel.getHeight()
+        );
+        
+        _parentFrame.getRootPane().getGlassPane().setVisible(true);
+        
+        _notificationEllipse.startAnimation(() -> 
+        {
+            _parentFrame.getRootPane().getGlassPane().setVisible(false);
+            enableAllInteractions();
+            if (onComplete != null) {onComplete.run();}
+        });
+    }
+
+
+    // public method to set the end turn button enabled state
+    public void setEndTurnButtonEnabled(boolean enabled) 
+    {
+        if (_endTurnButton != null) 
+        {
+            _endTurnButton.setVisible(enabled);
+            _endTurnButton.setEnabled(enabled);
+        }
+    }
+
+
+    // helper method to check if the end turn button is available
+    public boolean isEndTurnAvailable() 
+    {
+        return _endTurnButton != null && _endTurnButton.isVisible() && _endTurnButton.isEnabled();
+    }
+
+
+    // disables all interactions in the game panel
+    public void disableAllInteractions() 
+    {
+        _endTurnButton.setVisible(false);
+        _moveButton.setVisible(false);
+        _attackButton.setVisible(false);
+        _deployButton.setVisible(false);
+        _mapPanel.setEnabled(false);
+    }
+
+
+    // enables all interactions in the game panel
+    public void enableAllInteractions() 
+    {
+        _mapPanel.setEnabled(true);
+        _endTurnButton.setVisible(true);
+        _endTurnButton.setEnabled(true);
+        
+        Territory selectedTerritory = _mapPanel.getSelectedTerritory();
+        if (selectedTerritory != null && selectedTerritory.getOwner() == _gameManager.getCurrentPlayer()) 
+        {
+            updateButtonsForSelectedTerritory(selectedTerritory);
+        }
+    }
+
+
+    // hides the action overlay and restores action buttons
+    private void hideOverlay() 
+    {
+        _actionOverlay.setVisible(false);
+        _blockingPanel.setVisible(false);
+
+        GameManager.ActionType currentAction = _gameManager.getMapPanel().getInteractionHandler().getCurrentAction();
+        
+        if (currentAction == GameManager.ActionType.NONE) 
+        {
+            _endTurnButton.setVisible(true);
+            Territory t = _mapPanel.getSelectedTerritory();
+            if (t != null && t.getOwner() == _gameManager.getCurrentPlayer()) 
+            {
+                Player currentPlayer = _gameManager.getCurrentPlayer();
+                boolean hasTroopsToDeploy = !currentPlayer.getAvailableTroopsMap().isEmpty();
+                _deployButton.setVisible(hasTroopsToDeploy);
+                
+                _moveButton.setVisible(t.isOccupied());
+                _attackButton.setVisible(t.isOccupied());
+            }
+        }
+        else 
+        {
+            System.out.println("Overlay hidden but buttons remain hidden during action: " + currentAction);
+        }
+    }
+
+
+    // opens the action overlay
+    private void openOverlay(String title, boolean isMove) 
+    {
+        _selectedTerritory = _mapPanel.getSelectedTerritory();
+        if (_selectedTerritory == null) {return;}
+        
+        // set the current action based on the overlay title
+        if (title.contains("Deploy")) {_currentAction = "deploy";} 
+        else if (title.contains("Move")) {_currentAction = "move";} 
+        else {_currentAction = "attack";}
+        
+        // hide action buttons to prevent unintended interactions
+        _moveButton.setVisible(false);
+        _attackButton.setVisible(false);
+        _deployButton.setVisible(false);
+        _endTurnButton.setVisible(false);
+        
+        // build overlay contents first
+        buildOverlayContents(title, isMove);
+        
+        // show the overlay and position it
+        _actionOverlay.setVisible(true);
+        _blockingPanel.setVisible(true);
+        
+        // position the overlay (this will also scale components)
+        repositionOverlay();
+    }
+
+
+    // builds the overlay contents based on the action type
+    private void buildOverlayContents(String title, boolean isMove) 
+    {
+        _actionOverlay.removeAll();
+        
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(_titleFont.deriveFont(48f));
+        titleLabel.setForeground(UIStyleUtils.GOLDEN_COLOR);
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        JPanel contentPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 40));
+        contentPanel.setOpaque(false);
+        contentPanel.setPreferredSize(new Dimension(525, 400));
+        
+        JPanel troopSelectionPanel = new JPanel();
+        troopSelectionPanel.setOpaque(false);
+        troopSelectionPanel.setLayout(new BoxLayout(troopSelectionPanel, BoxLayout.Y_AXIS));
+        troopSelectionPanel.setPreferredSize(new Dimension(525, 350));
+        
+        Map<String, JSlider> troopSliders = new HashMap<>();
+        
+        Player currentPlayer = _gameManager.getCurrentPlayer();
+        Territory selectedTerritory = _mapPanel.getSelectedTerritory();
+        if (selectedTerritory != null) 
+        {
+            Map<String, Integer> availableTroops;
+
+            if (title.contains("Deploy")) {availableTroops = currentPlayer.getAvailableTroopsMap();} 
+            else {availableTroops = selectedTerritory.getAvailableTroopsForAction();}
+            
+            // create sliders for each troop type
+            for (Map.Entry<String, Integer> entry : availableTroops.entrySet()) 
+            {
+                if (entry.getValue() > 0) 
                 {
-                    float fontSize = Math.max(18f, Math.min(26f, overlayWidth / 25f));
-                    label.setFont(_buttonFont.deriveFont(fontSize));
+                    JPanel troopRow = createTroopRow(entry.getKey(), entry.getValue(), troopSliders);
+                    troopSelectionPanel.add(troopRow);
+                    troopSelectionPanel.add(Box.createRigidArea(new Dimension(0, 20)));
                 }
             }
-            else if (comp instanceof Container) 
-            {
-                scaleComponentsRecursively((Container) comp, overlayWidth, overlayHeight);
-            }
         }
+        
+        contentPanel.add(troopSelectionPanel);
+        _actionOverlay.add(titleLabel, BorderLayout.NORTH);
+        _actionOverlay.add(contentPanel, BorderLayout.CENTER);
+
+        // button section
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        buttonPanel.setOpaque(false);
+        buttonPanel.setPreferredSize(new Dimension(485, 60));
+        JButton confirm = UIStyleUtils.createStyledButton("Confirm");
+        JButton cancel = UIStyleUtils.createStyledButton("Cancel");
+        buttonPanel.add(confirm);
+        buttonPanel.add(cancel);
+        _actionOverlay.add(buttonPanel, BorderLayout.SOUTH);
+        
+        confirm.addActionListener(_ -> handleConfirm(troopSliders));
+        cancel.addActionListener(_ -> hideOverlay());
     }
 
 
     // creates a UI row for selecting troop quantities
     private JPanel createTroopRow(String troopType, int available, Map<String, JSlider> sliders) 
     {
-        JPanel rowPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 5));
+
+        JPanel rowPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         rowPanel.setOpaque(false);
+        rowPanel.setPreferredSize(new Dimension(525, 75));
+        rowPanel.setMaximumSize(new Dimension(525, 75));
 
         // troop type label
         JLabel typeLabel = new JLabel(troopType + ":");
-        typeLabel.setFont(_buttonFont.deriveFont(26f));
+        typeLabel.setFont(_buttonFont.deriveFont(28f));
         typeLabel.setForeground(Color.WHITE);
-        typeLabel.setPreferredSize(new Dimension(120, 36)); 
+        typeLabel.setPreferredSize(new Dimension(150, 45));
         rowPanel.add(typeLabel);
 
         // troop icon
@@ -497,36 +492,34 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
             {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // White circular background
                 g2.setColor(Color.WHITE);
                 g2.fillOval(0, 0, getWidth(), getHeight());
-                // Brown border
                 g2.setColor(UIStyleUtils.BUTTON_COLOR);
                 g2.setStroke(new BasicStroke(2));
-                g2.drawOval(0, 0, getWidth()-1, getHeight()-1);
+                g2.drawOval(0, 0, getWidth(), getHeight());
                 g2.dispose();
             }
         };
         iconPanel.setOpaque(false);
-        iconPanel.setPreferredSize(new Dimension(32, 32));
+        iconPanel.setPreferredSize(new Dimension(48, 48));
         ImageIcon orig = new ImageIcon(TroopFactory.getTroopIcon(troopType));
-        Image img = orig.getImage().getScaledInstance(26, 26, Image.SCALE_SMOOTH);
+        Image img = orig.getImage().getScaledInstance(36, 36, Image.SCALE_SMOOTH);
         iconPanel.setLayout(new GridBagLayout());
         iconPanel.add(new JLabel(new ImageIcon(img)));
         rowPanel.add(iconPanel);
 
-        // slider for troop quantity
+        // slider
         JSlider slider = new JSlider(0, available, 0);
         slider.setMinorTickSpacing(1);
-        slider.setMajorTickSpacing(Math.max(1, available/5));
+        slider.setMajorTickSpacing(Math.max(1, available/3));
         slider.setPaintTicks(true);
         slider.setPaintLabels(true);
         slider.setOpaque(false);
         slider.setForeground(Color.WHITE);
-        slider.setFont(_buttonFont.deriveFont(16f));
-        slider.setPreferredSize(new Dimension(200, 40));
-        
-        // apply custom UI for the slider (maybe this should be moved to UIStyleUtils))
+        slider.setFont(_buttonFont.deriveFont(15f)); 
+        slider.setPreferredSize(new Dimension(200, 55));
+
+        // apply custom UI for the slider
         slider.setUI(new javax.swing.plaf.basic.BasicSliderUI(slider) 
         {
             @Override
@@ -556,159 +549,47 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         return rowPanel;
     }
 
-    
-    // opens the action overlay
-    private void openOverlay(String title, boolean isMove) 
-    {
-        _selectedTerritory = _mapPanel.getSelectedTerritory();
-        if (_selectedTerritory == null) {
-            return;
-        }
-        
-        // Set the current action based on the overlay title
-        if (title.contains("Deploy")) {_currentAction = "deploy";} 
-        else if (title.contains("Move")) {_currentAction = "move";} 
-        else {_currentAction = "attack";}
-        
-        // Hide action buttons to prevent unintended interactions
-        _moveButton.setVisible(false);
-        _attackButton.setVisible(false);
-        _deployButton.setVisible(false);
-        _endTurnButton.setVisible(false);
-        
-        // Build overlay contents first
-        buildOverlayContents(title, isMove);
-        
-        // Show the overlay and position it
-        _actionOverlay.setVisible(true);
-        _blockingPanel.setVisible(true);
-        
-        // Position the overlay (this will also scale components)
-        repositionOverlay();
-    }
-
-
-    // hides the action overlay and restores action buttons
-    private void hideOverlay() 
-    {
-        _actionOverlay.setVisible(false);
-        _blockingPanel.setVisible(false);
-
-        showEndTurnButton();
-        Territory t = _mapPanel.getSelectedTerritory();
-        if (t != null && t.getOwner() == _gameManager.getCurrentPlayer()) 
-        {
-            Player currentPlayer = _gameManager.getCurrentPlayer();
-            boolean hasTroopsToDeploy = !currentPlayer.getAvailableTroopsMap().isEmpty();
-            _deployButton.setVisible(hasTroopsToDeploy);
-            
-            _moveButton.setVisible(t.isOccupied());
-            _attackButton.setVisible(t.isOccupied());
-        }
-    }
-
-
-    // builds the overlay contents based on the action type
-    private void buildOverlayContents(String title, boolean isMove) 
-    {
-        _actionOverlay.removeAll();
-        
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(_titleFont);
-        titleLabel.setForeground(UIStyleUtils.GOLDEN_COLOR);
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        
-        JPanel contentPanel = new JPanel();
-        contentPanel.setOpaque(false);
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        contentPanel.setLayout(new BorderLayout(0, 10));
-        
-        JPanel troopSelectionPanel = new JPanel();
-        troopSelectionPanel.setOpaque(false);
-        troopSelectionPanel.setLayout(new BoxLayout(troopSelectionPanel, BoxLayout.Y_AXIS));
-        
-        Map<String, JSlider> troopSliders = new HashMap<>();
-        
-        Player currentPlayer = _gameManager.getCurrentPlayer();
-        Territory selectedTerritory = _mapPanel.getSelectedTerritory();
-        if (selectedTerritory != null) 
-        {
-            Map<String, Integer> availableTroops;
-
-            if (title.contains("Deploy")) 
-            {
-                availableTroops = currentPlayer.getAvailableTroopsMap();
-            } 
-            else 
-            {
-                availableTroops = selectedTerritory.getAvailableTroopsForAction();
-            }
-            
-            // Create sliders for each troop type
-            for (Map.Entry<String, Integer> entry : availableTroops.entrySet()) 
-            {
-                if (entry.getValue() > 0) 
-                {
-                    JPanel troopRow = createTroopRow(entry.getKey(), entry.getValue(), troopSliders);
-                    troopSelectionPanel.add(troopRow);
-                }
-            }
-        }
-        
-        contentPanel.add(troopSelectionPanel, BorderLayout.CENTER);
-        _actionOverlay.add(titleLabel, BorderLayout.NORTH);
-        _actionOverlay.add(contentPanel, BorderLayout.CENTER);
-
-        // Button section
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 8));
-        buttonPanel.setOpaque(false);
-        buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
-        JButton confirm = UIStyleUtils.createStyledButton("Confirm");
-        confirm.addActionListener(_ -> handleConfirm(troopSliders));
-        JButton cancel = UIStyleUtils.createStyledButton("Cancel");
-        cancel.addActionListener(_ -> hideOverlay());
-        buttonPanel.add(confirm);
-        buttonPanel.add(cancel);
-        _actionOverlay.add(buttonPanel, BorderLayout.SOUTH);
-    }
-
 
     // handles the confirm button passing the responsaibility to GameActionHandler
     private void handleConfirm(Map<String, JSlider> sliders) 
     {
         GameActionHandler actionHandler = _gameManager.getActionHandler();
         
-        // Create troops HashMap from sliders
+        // create troops HashMap from sliders
         Map<String, Integer> selectedTroops = new HashMap<>();
         sliders.forEach((troopType, slider) -> 
         {
             int quantity = slider.getValue();
-            if (quantity > 0) 
-            {
-                selectedTroops.put(troopType, quantity);
-            }
+            if (quantity > 0) {selectedTroops.put(troopType, quantity);}
         });
         
         // equivalent to cancel
-        if (selectedTroops.isEmpty()) 
-        {
-            hideOverlay();
-        }
+        if (selectedTroops.isEmpty()) {hideOverlay(); return;}
 
-
-        if (_currentAction == "deploy") 
+        if (_currentAction.equals("deploy")) 
         {
             actionHandler.deployTroops(_selectedTerritory, selectedTroops);
+            hideOverlay();
         }
         else
         {
             GameManager.ActionType actionType = _currentAction.equals("move") ? 
                 GameManager.ActionType.MOVE : GameManager.ActionType.ATTACK;
+
             actionHandler.prepareActions(_selectedTerritory, selectedTroops, actionType);
+            
+            if (!_currentAction.equals("deploy")) 
+            {
+                _actionOverlay.setVisible(false);
+                _blockingPanel.setVisible(false);
+            }
+            else 
+            {
+                hideOverlay(); // Solo per deploy
+            }
         }
-        hideOverlay();
     }
-    
+
 
     // hides all action buttons and overlays, used in ctor
     public void hideEverything() 
@@ -744,14 +625,10 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     // update action buttons based on territory selection and available actions
     public void updateButtonsForSelectedTerritory(Territory territory) 
     {
-        // First hide all buttons
         hideActionButtons();
         
-        // Exit early if territory is null or not owned by current player
-        if (territory == null || territory.getOwner() != _gameManager.getCurrentPlayer()) 
-        {
-            return;
-        }
+        // exit early if territory is null or not owned by current player
+        if (territory == null || territory.getOwner() != _gameManager.getCurrentPlayer()) {return;}
         
         Player currentPlayer = _gameManager.getCurrentPlayer();
         
@@ -759,19 +636,19 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         boolean hasTroopsToDeploy = !currentPlayer.getAvailableTroopsMap().isEmpty();
         _deployButton.setVisible(hasTroopsToDeploy);
         
-        // Only continue checking other buttons if territory has troops
+        // only continue checking other buttons if territory has troops
         if (!territory.isOccupied()) {return;}
 
+        boolean hasMovableTroops = territory.hasTroopsForAction();
+
         // MOVE: Show only if territory has troops that could move and a friendly territory neighbor
-        boolean hasMovableTroops = territory.hasMovableTroops();
         List<Territory> moveTargets = _gameManager.getValidMoveTargets(territory);
         boolean canMove = hasMovableTroops && !moveTargets.isEmpty();
         _moveButton.setVisible(canMove);
         
         // ATTACK: Show only if territory has troops that could move and a foe territory neighbor
-        boolean hasAttackableTroops = territory.hasAttackableTroops();
         List<Territory> attackTargets = _gameManager.getValidAttackTargets(territory);
-        boolean canAttack = hasAttackableTroops && !attackTargets.isEmpty();
+        boolean canAttack = hasMovableTroops && !attackTargets.isEmpty();
         _attackButton.setVisible(canAttack);
     }
    
@@ -781,52 +658,56 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         _moveButton.setVisible(false);
         _attackButton.setVisible(false);
         _deployButton.setVisible(false);
+        
+        // AGGIUNTO: Debug per tracking
+        System.out.println("Action buttons hidden");
     }
-    
-
-    // public method to show the End Turn button
-    public void showEndTurnButton() {_endTurnButton.setVisible(true);}
 
 
-    // RINOMINATO: checks if any notification animation is currently running
-    public boolean isTurnAnimationRunning() 
+    // repositions the overlay to be centered on the map panel
+    public void repositionOverlay() 
     {
-        return _notificationEllipse != null && _notificationEllipse.isAnimating();
+        if (_actionOverlay == null || !_actionOverlay.isVisible()) {return;}
+
+        // get MapPanel's position and dimensions relative to the layered pane
+        Point mapLocationInFrame = SwingUtilities.convertPoint(_mapPanel, 0, 0, _parentFrame.getLayeredPane());
+        int mapWidth = _mapPanel.getWidth();
+        int mapHeight = _mapPanel.getHeight();
+        
+        // use fixed overlay dimensions
+        final int overlayWidth = OVERLAY_WIDTH;
+        final int overlayHeight = OVERLAY_HEIGHT;
+        
+        // calculate center of the mapPanel
+        int mapCenterX = mapLocationInFrame.x + mapWidth / 2;
+        int mapCenterY = mapLocationInFrame.y + mapHeight / 2;
+        
+        // position overlay with its center at the map's center
+        int x = mapCenterX - overlayWidth / 2;
+        int y = mapCenterY - overlayHeight / 2;
+        
+        _actionOverlay.setBounds(x, y, overlayWidth, overlayHeight);
+        
+        // make blocking panel cover the entire layered pane area
+        _blockingPanel.setBounds(0, 0, _parentFrame.getWidth(), _parentFrame.getHeight());
     }
 
-    // NUOVO METODO: Controlla se l'animazione di eliminazione è in corso
-    public boolean isEliminationAnimationRunning() 
-    {
-        return isTurnAnimationRunning(); // Stessa logica, stessa ellisse
-    }
 
-    // RINOMINATO: reposition the notification ellipse
-    public void repositionTurnNotification() 
-    {
-        repositionNotificationEllipse();
-    }
-
-    // NUOVO METODO: reposition the elimination notification ellipse
-    public void repositionEliminationNotification() 
-    {
-        repositionNotificationEllipse();
-    }
-
-    // NUOVO METODO UNIFICATO: riposiziona l'ellisse di notifica
-    private void repositionNotificationEllipse() 
+    // repositions the notification ellipse if it is scaled (called by GameLauncher)
+    public void repositionEllipse() 
     {
         if (_notificationEllipse != null && _notificationEllipse.isAnimating()) 
         {
-            // Ricalcola la posizione della MapPanel relativa al glass pane
-            Point mapLocationInGlass = SwingUtilities.convertPoint(
+            Point mapLocationInGlass = SwingUtilities.convertPoint
+            (
                 _mapPanel.getParent(), 
                 _mapPanel.getX(), 
                 _mapPanel.getY(), 
                 _parentFrame.getRootPane().getGlassPane()
             );
             
-            // Riposiziona l'ellisse
-            _notificationEllipse.setBounds(
+            _notificationEllipse.setBounds
+            (
                 mapLocationInGlass.x, 
                 mapLocationInGlass.y, 
                 _mapPanel.getWidth(), 
@@ -837,6 +718,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
             _notificationEllipse.repaint();
         }
     }
+
 
     // scales the panel and repositions components based on size
     @Override
@@ -904,7 +786,7 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
         );
         
         repositionOverlay();
-        repositionNotificationEllipse(); // AGGIORNATO
+        repositionEllipse();
     }
 
 
@@ -927,9 +809,37 @@ public class GameActionPanel extends JPanel implements GameLauncher.Scalable
     }
 
 
-    // public method to check if the overlay is visible
-    public boolean isOverlayVisible() 
+    // shows the elimination notification ellipse
+    public void showEliminationNotification(String eliminationText, Color playerColor, Runnable onComplete) 
     {
-        return _actionOverlay != null && _actionOverlay.isVisible();
+        if (_notificationEllipse == null) 
+        {
+            if (onComplete != null) {onComplete.run();}
+            return;
+        }
+        disableAllInteractions();
+        
+        _notificationEllipse._text = eliminationText;
+        _notificationEllipse._ellipseColor = Color.BLACK;
+        _notificationEllipse._textColor = Color.WHITE;
+
+        showNotificationEllipse(() -> 
+        {
+            enableAllInteractions();
+            if (onComplete != null) {onComplete.run();}
+        });
+    }
+
+
+    // public methods
+    public boolean isOverlayVisible() {return _actionOverlay != null && _actionOverlay.isVisible();}
+    public boolean isTurnAnimationRunning() {return _notificationEllipse != null && _notificationEllipse.isAnimating();}
+
+
+    // finds the InfoPanel component in the parent frame's layered pane
+    private InfoPanel findInfoPanel() 
+    {
+        Container parent = _parentFrame.getLayeredPane();
+        return GameLauncher.findComponentRecursive(InfoPanel.class, parent);
     }
 }

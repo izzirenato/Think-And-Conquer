@@ -1,12 +1,13 @@
 package map;
 
+
 import gameSetup.GameActionHandler;
 import gameSetup.GameManager;
 
 import java.awt.Cursor;
 import java.awt.Point;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,11 +15,14 @@ import java.util.Map;
 
 import javax.swing.Timer;
 
-/**
- * Handles user interactions with the map
- * Acts as the single source of truth for map interaction state
+
+/*
+ * MapInteractionHandler manages user interactions with the map and passes actions to the GameActionHandler
  */
-public class MapInteractionHandler {
+
+
+public class MapInteractionHandler 
+{
     private final MapPanel _mapPanel;
     private GameActionHandler _actionHandler;
     
@@ -32,210 +36,51 @@ public class MapInteractionHandler {
     private boolean _blinkState = false;
     private static final int BLINK_INTERVAL = 600;
     
-    // Action state
     private GameManager.ActionType _currentAction = GameManager.ActionType.NONE;
-    private GameManager.ActionType _currentActionCache = null;
     
-    // OPTIMIZATION: Replace single troop variables with HashMap
     private Map<String, Integer> _selectedTroops = new HashMap<>();
-
-    // Aggiungi questa variabile come campo della classe
     private boolean _processingClick = false;
-
-    /**
-     * Constructor with action handler
-     */
-    public MapInteractionHandler(MapPanel mapPanel, GameActionHandler actionHandler) {
-        _mapPanel = mapPanel;
-        _actionHandler = actionHandler;
-        
-        _mapPanel.setInteractionHandler(this);
-        _mapPanel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                handleClick(e);
-            }
-        });
-
-        System.out.println("MapInteractionHandler initialized with ActionHandler" + 
-                           (getActionHandler() != null ? " valid" : " null"));
-    }
     
-    /**
-     * Constructor with clean initialization
-     */
-    public MapInteractionHandler(MapPanel mapPanel) {
-        if (mapPanel == null) {
+    
+    // ctor
+    public MapInteractionHandler(MapPanel mapPanel) 
+    {
+        if (mapPanel == null) 
+        {
             throw new IllegalArgumentException("MapPanel cannot be null");
         }
         
         _mapPanel = mapPanel;
         _mapPanel.setInteractionHandler(this);
-        
-        _mapPanel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                handleClick(e);
-            }
-        });
 
         System.out.println("MapInteractionHandler initialized and bound to MapPanel");
     }
     
-    /**
-     * Handle mouse click on map
-     */
-    public void handleClick(MouseEvent e) {
-        if (_processingClick) {
-            System.out.println("DEBUG: Ignoring click while processing previous click");
-            return;
-        }
-        
-        _processingClick = true;
-        try {
-            GameActionHandler actionHandler = getActionHandler();
-            
-            if (actionHandler == null) {
-                System.err.println("ERROR: ActionHandler is null in handleClick - cannot process click");
-                return;
-            }
-            
-            Point point = e.getPoint();
-            Territory clickedTerritory = _mapPanel.getTerritoryAtPoint(point);
-            
-            if (clickedTerritory == null) {
-                clearSelection();
-                return;
-            }
-            
-            if (_currentAction != GameManager.ActionType.NONE && _sourceTerritory != null) {
-                if (_highlightedTerritories.contains(clickedTerritory)) {
-                    completeAction(clickedTerritory);
-                } else {
-                    selectTerritory(clickedTerritory);
-                }
-            } else {
-                selectTerritory(clickedTerritory);
-            }
-            _mapPanel.repaint();
-        } finally {
-            _processingClick = false;
-        }
-    }
-    
-    /**
-     * Select a territory
-     */
-    public void selectTerritory(Territory territory) {
-        _selectedTerritory = territory;
-        
-        if (territory != null) {
-            startBlinking(territory);
-        }
-        
-        GameActionHandler actionHandler = getActionHandler();
-        if (actionHandler == null) {
-            System.err.println("ERROR: ActionHandler is null in selectTerritory");
-            return;
-        }
-        
-        actionHandler.handleTerritorySelection(territory);
-    }
-    
-    /**
-     * Set current action type
-     */
-    public void setCurrentAction(GameManager.ActionType actionType) {
-        // Skip if action hasn't changed
-        if (_currentAction == actionType && _currentActionCache == actionType) {
-            return;
-        }
-        
-        _currentActionCache = actionType;
-        _currentAction = actionType;
-        updateCursorForAction(actionType);
-        
-        System.out.println("DEBUG: setCurrentAction called with: " + actionType);
-        System.out.println("DEBUG: _sourceTerritory is " + (_sourceTerritory != null ? _sourceTerritory.getName() : "null"));
-        
-        if (_sourceTerritory != null) {
-            if (_blinkTimer != null) {
-                _blinkTimer.stop();
-                _blinkTimer = null;
-            }
-            
-            GameActionHandler actionHandler = getActionHandler();
-            if (actionHandler == null) {
-                System.err.println("ERROR: ActionHandler is null in setCurrentAction");
-                return;
-            }
-            
-            if (actionType == GameManager.ActionType.ATTACK) {
-                List<Territory> targets = actionHandler.getValidAttackTargets(_sourceTerritory);
-                startBlinkingForTargets(targets, _sourceTerritory);
-            } else if (actionType == GameManager.ActionType.MOVE) {
-                List<Territory> targets = actionHandler.getValidMoveTargets(_sourceTerritory);
-                if (targets == null) {
-                    targets = new ArrayList<>();
-                }
-                startBlinkingForTargets(targets, _sourceTerritory);
-            } else {
-                startBlinking(_sourceTerritory);
-            }
-        }
-    }
-    
-    /**
-     * Update cursor based on current action
-     */
-    private void updateCursorForAction(GameManager.ActionType actionType) {
-        if (actionType == GameManager.ActionType.NONE) {
-            _mapPanel.setCursor(Cursor.getDefaultCursor());
-        } else if (actionType == GameManager.ActionType.ATTACK) {
-            _mapPanel.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
-        } else if (actionType == GameManager.ActionType.MOVE) {
-            _mapPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        }
-    }
-    
-    /**
-     * Get current action type
-     */
-    public GameManager.ActionType getCurrentAction() {
-        return _currentAction;
-    }
-    
-    /**
-     * Set source territory for current action
-     */
-    public void setSourceTerritory(Territory territory) {
+
+    // getters and setters
+    public Territory getSelectedTerritory() {return _selectedTerritory;}
+    public Territory getSourceTerritory() {return _sourceTerritory;}
+    public Territory getJustConquered() {return _justConquered;}
+    public boolean getBlinkState() {return _blinkState;}
+    public List<Territory> getHighlightedTerritories() {return new ArrayList<>(_highlightedTerritories);}
+    public GameManager.ActionType getCurrentAction() {return _currentAction;}
+
+    public void setActionHandler(GameActionHandler handler) {_actionHandler = handler;}
+    public GameActionHandler getActionHandler() {return _actionHandler;}
+
+    public void setSourceTerritory(Territory territory) 
+    {
         _sourceTerritory = territory;
         startBlinking(territory);
     }
-    
-    /**
-     * Start blinking effect for a territory
-     */
-    public void startBlinking(Territory territory) {
-        clearBlinking();
-        
-        _sourceTerritory = territory;
-        
-        _blinkTimer = new Timer(BLINK_INTERVAL, _ -> {
-            _blinkState = !_blinkState;
-            _mapPanel.repaint();
-        });
-        _blinkTimer.start();
-    }
-    
-    /**
-     * Set conquered territory for animation
-     */
-    public void setJustConquered(Territory territory) {
+
+    public void setJustConquered(Territory territory) 
+    {
         _justConquered = territory;
         _mapPanel.repaint();
         
-        Timer clearTimer = new Timer(2000, _ -> {
+        Timer clearTimer = new Timer(2000, _ -> 
+        {
             _justConquered = null;
             _mapPanel.repaint();
         });
@@ -243,45 +88,145 @@ public class MapInteractionHandler {
         clearTimer.start();
     }
     
-    /**
-     * Clear all blinking effects
-     */
-    public void clearBlinking() {
-        if (_blinkTimer != null) {
-            _blinkTimer.stop();
-            _blinkTimer = null;
+
+    // sets the current action
+    public void setCurrentAction(GameManager.ActionType actionType) 
+    {
+        if (_currentAction == actionType) {return;}
+        
+        _currentAction = actionType;
+        updateCursorForAction(actionType);
+        
+        System.out.println("DEBUG: setCurrentAction called with: " + actionType);
+        System.out.println("DEBUG: _sourceTerritory is " + (_sourceTerritory != null ? _sourceTerritory.getName() : "null"));
+        
+        if (_sourceTerritory != null) 
+        {
+            if (_blinkTimer != null) 
+            {
+                _blinkTimer.stop();
+                _blinkTimer = null;
+            }
+            
+            GameActionHandler actionHandler = getActionHandler();
+            if (actionHandler == null) 
+            {
+                System.err.println("ERROR: ActionHandler is null in setCurrentAction");
+                return;
+            }
+            
+            if (actionType == GameManager.ActionType.ATTACK) 
+            {
+                List<Territory> targets = actionHandler.getValidAttackTargets(_sourceTerritory);
+                startBlinkingForTargets(targets, _sourceTerritory);
+            } 
+            else if (actionType == GameManager.ActionType.MOVE) 
+            {
+                List<Territory> targets = actionHandler.getValidMoveTargets(_sourceTerritory);
+                if (targets == null) {targets = new ArrayList<>();}
+                startBlinkingForTargets(targets, _sourceTerritory);
+            } 
+            else {startBlinking(_sourceTerritory);}
         }
-        _sourceTerritory = null;
-        _highlightedTerritories.clear();
-        _blinkState = false; // Reset blink state to prevent flickering
-        _mapPanel.repaint();
     }
-    
-    /**
-     * Highlight territories for move or attack
-     */
-    public void highlightTerritories(List<Territory> territories, Territory sourceTerritory) {
-        clearBlinking();
-        
-        _highlightedTerritories = territories != null ? territories : new ArrayList<>();
-        _sourceTerritory = sourceTerritory;
-        
-        if (!_highlightedTerritories.isEmpty()) {
-            _blinkTimer = new Timer(BLINK_INTERVAL, _ -> {
-                _blinkState = !_blinkState;
-                _mapPanel.repaint();
-            });
-            _blinkTimer.start();
+
+
+    // updates the cursor based on the current action
+    private void updateCursorForAction(GameManager.ActionType actionType) 
+    {
+        if (actionType == GameManager.ActionType.NONE) 
+        {
+            _mapPanel.setCursor(Cursor.getDefaultCursor());
+        } 
+        else if (actionType == GameManager.ActionType.ATTACK) 
+        {
+            _mapPanel.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+        } 
+        else if (actionType == GameManager.ActionType.MOVE) 
+        {
+            _mapPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        }
+    }
+
+
+    // sets the selected troops for the current action
+    public void setSelectedTroops(Map<String, Integer> troops) 
+    {
+        _selectedTroops = new HashMap<>(troops);
+        System.out.println("MapInteractionHandler: Selected troops: " + _selectedTroops);
+    }
+
+
+    // handle mouse clicks on the map based on the current action
+    public void handleClick(MouseEvent e) 
+    {
+        if (_processingClick) 
+        {
+            System.out.println("DEBUG: Ignoring click while processing previous click");
+            return;
         }
         
-        _mapPanel.repaint();
+        _processingClick = true;
+        try 
+        {
+            GameActionHandler actionHandler = getActionHandler();
+            
+            if (actionHandler == null) 
+            {
+                System.err.println("ERROR: ActionHandler is null in handleClick - cannot process click");
+                return;
+            }
+            
+            Point point = e.getPoint();
+            Territory clickedTerritory = _mapPanel.getTerritoryAtPoint(point);
+            
+            if (clickedTerritory == null) 
+            {
+                clearSelection();
+                return;
+            }
+            
+            if (_currentAction != GameManager.ActionType.NONE && _sourceTerritory != null) 
+            {
+                if (_highlightedTerritories.contains(clickedTerritory)) {completeAction(clickedTerritory);} 
+                else {selectTerritory(clickedTerritory);}
+            } 
+            else {selectTerritory(clickedTerritory);}
+            _mapPanel.repaint();
+        } 
+        finally 
+        {
+            _processingClick = false;
+        }
     }
-    
-    /**
-     * Complete action on target territory
-     */
-    public void completeAction(Territory targetTerritory) {
-        if (_currentAction == GameManager.ActionType.NONE) {
+
+
+    // selects a territory and starts blinking
+    public void selectTerritory(Territory territory) 
+    {
+        _selectedTerritory = territory;
+        
+        if (territory != null) 
+        {
+            startBlinking(territory);
+        }
+        
+        GameActionHandler actionHandler = getActionHandler();
+        if (actionHandler == null) 
+        {
+            System.err.println("ERROR: ActionHandler is null in selectTerritory");
+            return;
+        }
+        
+        actionHandler.handleTerritorySelection(territory);
+    }
+
+
+    // completes the current action on the target territory
+    public void completeAction(Territory targetTerritory) 
+    {
+        if (_currentAction == GameManager.ActionType.NONE) 
+        {
             System.err.println("ERROR: Attempting to complete action when _currentAction is NONE");
             return;
         }
@@ -290,125 +235,144 @@ public class MapInteractionHandler {
                           targetTerritory.getName() + " with action type: " + _currentAction);
 
         GameActionHandler actionHandler = getActionHandler();
-        if (actionHandler == null) {
+        if (actionHandler == null) 
+        {
             System.err.println("ERROR: ActionHandler is null in completeAction");
             return;
         }
         
         boolean success = false;
         
-        try {
-            // OPTIMIZATION: Use the stored HashMap instead of creating a new one
+        try 
+        {
             if (_currentAction == GameManager.ActionType.ATTACK) {
                 System.out.println("Completing attack on " + targetTerritory.getName() + 
                                   " with troops: " + _selectedTroops);
-                actionHandler.executeAttack(_sourceTerritory, targetTerritory, _selectedTroops);
-            } else if (_currentAction == GameManager.ActionType.MOVE) {
+
+                if (_mapPanel.getGameManager().canAttackTerritory(_sourceTerritory, targetTerritory)) {
+                    _mapPanel.getGameManager().completeAttack(targetTerritory);
+                    success = true;
+                } 
+                else
+                {
+                    System.out.println("Invalid attack target");
+                    _mapPanel.getGameManager().resetGameState();
+                }
+            } 
+            else if (_currentAction == GameManager.ActionType.MOVE) 
+            {
                 System.out.println("Completing move to " + targetTerritory.getName() + 
                                   " with troops: " + _selectedTroops);
-                actionHandler.executeMove(_sourceTerritory, targetTerritory, _selectedTroops);
-            }
-        } catch (Exception e) {
+                if (_mapPanel.getGameManager().validateMoveTarget(targetTerritory)) 
+                {
+                    _mapPanel.getGameManager().completeMove(targetTerritory);
+                    success = true;
+                } 
+                else 
+                {
+                    System.out.println("Invalid move target");
+                    _mapPanel.getGameManager().resetGameState();
+                }
+            }  
+        } 
+        catch (Exception e) 
+        {
             System.err.println("ERROR in completeAction: " + e.getMessage());
             e.printStackTrace();
         }
         
         clearBlinking();
         
-        if (!success) {
+        if (!success) 
+        {
             selectTerritory(_sourceTerritory);
-        } else {
+        } 
+        else {
             _sourceTerritory = null;
             _selectedTerritory = null;
             _currentAction = GameManager.ActionType.NONE;
-            _selectedTroops.clear(); // Clear selected troops
+            _selectedTroops.clear();
         }
         
         _mapPanel.repaint();
     }
-    
-    /**
-     * Update MapPanel's visible state after an action is completed
-     */
-    public void updateMapState() {
+
+
+    // highlights territories for a specific action
+    public void highlightTerritories(List<Territory> territories, Territory sourceTerritory) 
+    {
         clearBlinking();
-        _mapPanel.repaint();
-    }
-    
-    /**
-     * Get methods for MapPanel to use in rendering
-     */
-    public Territory getSelectedTerritory() {
-        return _selectedTerritory;
-    }
-    
-    public Territory getSourceTerritory() {
-        return _sourceTerritory;
-    }
-    
-    public Territory getJustConquered() {
-        return _justConquered;
-    }
-    
-    /**
-     * Get blink state
-     */
-    public boolean getBlinkState() {
-        return _blinkState;
+        
+        _highlightedTerritories = territories != null ? territories : new ArrayList<>();
+        _sourceTerritory = sourceTerritory;
+        
+        if (!_highlightedTerritories.isEmpty()) 
+        {
+            startBlinkTimer();
+        }
+        
+        System.out.println("Highlighting " + _highlightedTerritories.size() + " territories");
     }
 
-    /**
-     * Get highlighted territories
-     */
-    public List<Territory> getHighlightedTerritories() {
-        return new ArrayList<>(_highlightedTerritories);
+
+    // starts blinking effect for the source territory
+    public void startBlinking(Territory territory) 
+    {
+        clearBlinking();
+        _sourceTerritory = territory;
+        startBlinkTimer();
     }
+
     
-    /**
-     * Start blinking for target territories
-     */
-    private void startBlinkingForTargets(List<Territory> targets, Territory sourceTerritory) {
+    // starts blinking effect for a list of target territories
+    private void startBlinkingForTargets(List<Territory> targets, Territory sourceTerritory) 
+    {
         _highlightedTerritories = targets != null ? targets : new ArrayList<>();
         _sourceTerritory = sourceTerritory;
         
         System.out.println("Starting blinking for " + _highlightedTerritories.size() + " targets");
         
-        if (!_highlightedTerritories.isEmpty()) {
-            _blinkTimer = new Timer(BLINK_INTERVAL, _ -> {
-                _blinkState = !_blinkState;
-                _mapPanel.repaint();
-            });
-            _blinkTimer.start();
+        if (!_highlightedTerritories.isEmpty()) 
+        {
+            startBlinkTimer();
         }
-        
-        _mapPanel.repaint();
     }
-    
-    /**
-     * Get blink state for territory
-     */
-    public boolean getBlinkStateForTerritory(Territory territory) {
-        if (_currentAction != GameManager.ActionType.NONE && territory == _sourceTerritory) {
+
+
+    // checks if the territory should blink based on the current action
+    public boolean getBlinkStateForTerritory(Territory territory) 
+    {
+        if (_currentAction != GameManager.ActionType.NONE && territory == _sourceTerritory) 
+        {
             return true;
         }
         return _blinkState;
     }
-    
-    /**
-     * Clear selection and notify GameActionHandler
-     */
-    public void clearSelection() {
-        _selectedTerritory = null;
-        _sourceTerritory = null;
-        _currentAction = GameManager.ActionType.NONE;
-        _selectedTroops.clear(); // OPTIMIZATION: Clear troops HashMap
-        
-        if (_blinkTimer != null) {
+
+
+    // clears the blinking effect
+    public void clearBlinking() 
+    {
+        if (_blinkTimer != null) 
+        {
             _blinkTimer.stop();
             _blinkTimer = null;
         }
-        
+        _sourceTerritory = null;
         _highlightedTerritories.clear();
+        _blinkState = false;
+        _mapPanel.repaint();
+    }
+
+
+    // clears the current selection and resets the state
+    public void clearSelection() 
+    {
+        _selectedTerritory = null;
+        _currentAction = GameManager.ActionType.NONE;
+        _selectedTroops.clear();
+        
+        clearBlinking();
         
         GameActionHandler actionHandler = getActionHandler();
         if (actionHandler != null) {
@@ -416,95 +380,27 @@ public class MapInteractionHandler {
         }
         
         _mapPanel.setCursor(Cursor.getDefaultCursor());
-        _mapPanel.repaint();
-    }
-    
-    /**
-     * OPTIMIZATION: Set selected troops using HashMap
-     */
-    public void setSelectedTroops(Map<String, Integer> troops) {
-        _selectedTroops = new HashMap<>(troops);
-        System.out.println("MapInteractionHandler: Selected troops: " + _selectedTroops);
-    }
-    
-    /**
-     * Add a single troop type to the selected troops
-     */
-    public void addSelectedTroop(String troopType, int quantity) {
-        if (quantity > 0) {
-            int current = _selectedTroops.getOrDefault(troopType, 0);
-            _selectedTroops.put(troopType, current + quantity);
-            System.out.println("MapInteractionHandler: Added " + quantity + " " + 
-                             troopType + " to selected troops");
+        
+        // AGGIUNTO: Riabilita end turn quando si cancella la selezione
+        if (_mapPanel.getGameManager() != null && _mapPanel.getGameManager().getGameActionPanel() != null) 
+        {
+            _mapPanel.getGameManager().getGameActionPanel().setEndTurnButtonEnabled(true);
+            System.out.println("End turn re-enabled after clearing selection");
         }
     }
 
-    /**
-     * Highlight source territory and valid target territories
-     */
-    public void highlightTargets(Territory sourceTerritory, List<Territory> targets) {
-        highlightTerritories(targets, sourceTerritory);
-        System.out.println("MapInteractionHandler: Highlighting " + 
-                         (targets != null ? targets.size() : 0) + " targets");
-    }
-
-    /**
-     * OPTIMIZATION: Set move parameters using HashMap
-     */
-    public void setMoveParameters(Map<String, Integer> troops) {
-        _selectedTroops = new HashMap<>(troops);
-        System.out.println("MapInteractionHandler: Move parameters set - " + _selectedTroops);
-    }
-
-    /**
-     * OPTIMIZATION: Set attack parameters using HashMap
-     */
-    public void setAttackParameters(Map<String, Integer> troops) {
-        _selectedTroops = new HashMap<>(troops);
-        System.out.println("MapInteractionHandler: Attack parameters set - " + _selectedTroops);
-    }
-
-    /**
-     * Sets the GameActionHandler reference
-     */
-    public void setActionHandler(GameActionHandler actionHandler) {
-        if (actionHandler == null) {
-            System.out.println("WARNING: Attempt to set null ActionHandler ignored");
-            return;
+    private void startBlinkTimer() 
+    {
+        if (_blinkTimer != null) 
+        {
+            _blinkTimer.stop();
         }
         
-        this._actionHandler = actionHandler;
-        System.out.println("MapInteractionHandler: ActionHandler connection established");
-    }
-    
-    /**
-     * Gets the action handler with error handling
-     */
-    public GameActionHandler getActionHandler() {
-        if (_actionHandler == null) {
-            if (_mapPanel != null && _mapPanel.getGameManager() != null) {
-                GameManager gameManager = _mapPanel.getGameManager();
-                if (gameManager.getActionHandler() != null) {
-                    _actionHandler = gameManager.getActionHandler();
-                    System.out.println("Recovered ActionHandler from GameManager via MapPanel");
-                }
-            }
-        }
-        return _actionHandler;
-    }
-    
-    /**
-     * OPTIMIZATION: Get the selected troops HashMap
-     */
-    public Map<String, Integer> getSelectedTroops() {
-        return new HashMap<>(_selectedTroops);
-    }
-
-    /**
-     * Also clear timers when releasing resources
-     */
-    public void dispose() {
-        clearBlinking();
-        // Clear any other resources
+        _blinkTimer = new Timer(BLINK_INTERVAL, _ -> 
+        {
+            _blinkState = !_blinkState;
+            _mapPanel.repaint();
+        });
+        _blinkTimer.start();
     }
 }

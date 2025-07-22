@@ -13,9 +13,9 @@ import javax.imageio.ImageIO;
 
 
 /*
- * UIStyleUtils provides utility methods for creating styled UI components
- * even though sometimes I created UI components directly in the class that uses them
+ * UIStyleUtils provides utility methods for creating the most common used UI components
  */
+
 
 public class UIStyleUtils 
 {
@@ -96,7 +96,6 @@ public class UIStyleUtils
             {
                 Graphics2D g2d = (Graphics2D) g.create();
 
-                // Set anti-aliasing and rendering hints to have a smooth outline
                 g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
                 g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
                 g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
@@ -116,7 +115,6 @@ public class UIStyleUtils
                     g2d.drawString(text, -i, fm.getAscent() - i);
                 }
 
-                // Draw main text
                 g2d.setColor(getForeground());
                 g2d.drawString(text, 0, fm.getAscent());
 
@@ -196,5 +194,150 @@ public class UIStyleUtils
         dialog.setVisible(true);
 
         return result[0];  
+    }
+
+
+    // creates a styled scroll pane with a custom scrollbar and styled track/thumb
+    public static JScrollPane createStyledScrollPane(JComponent component) 
+    {
+        JScrollPane scrollPane = new JScrollPane(component);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        
+        // Increase scroll speed
+        scrollPane.getVerticalScrollBar().setUnitIncrement(20);
+        scrollPane.getVerticalScrollBar().setBlockIncrement(60);
+
+        JScrollBar verticalBar = scrollPane.getVerticalScrollBar();
+        verticalBar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() 
+        {
+            @Override
+            protected void configureScrollBarColors() 
+            {
+                thumbColor = UIStyleUtils.BUTTON_HOVER_COLOR;
+                trackColor = new Color(60, 60, 90);
+            }
+            
+            @Override
+            public void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) 
+            {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Paint rounded thumb with golden border
+                g2.setColor(thumbColor);
+                g2.fillRoundRect(thumbBounds.x + 1, thumbBounds.y, thumbBounds.width - 2, thumbBounds.height, 8, 8);
+                
+                g2.setColor(UIStyleUtils.GOLDEN_COLOR);
+                g2.setStroke(new BasicStroke(1));
+                g2.drawRoundRect(thumbBounds.x + 1, thumbBounds.y, thumbBounds.width - 2, thumbBounds.height, 8, 8);
+                
+                g2.dispose();
+            }
+            
+            @Override
+            public void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) 
+            {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Paint rounded track
+                g2.setColor(trackColor);
+                g2.fillRoundRect(trackBounds.x + 2, trackBounds.y, trackBounds.width - 4, trackBounds.height, 6, 6);
+                
+                g2.dispose();
+            }
+            
+            @Override
+            protected JButton createDecreaseButton(int orientation) 
+            {
+                JButton button = createStyledScrollButton(orientation, true);
+                button.setAlignmentX(Component.CENTER_ALIGNMENT);
+                return button;
+            }
+            
+            @Override
+            protected JButton createIncreaseButton(int orientation) 
+            {
+                JButton button = createStyledScrollButton(orientation, false);
+                button.setAlignmentX(Component.CENTER_ALIGNMENT);
+                return button;
+            }
+            
+            private JButton createStyledScrollButton(int orientation, boolean isUp) 
+            {
+                JButton button = new JButton() 
+                {
+                    @Override
+                    protected void paintComponent(Graphics g) 
+                    {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        
+                        // Paint rounded background
+                        g2.setColor(getBackground());
+                        g2.fillRoundRect(1, 1, getWidth()-2, getHeight()-2, 4, 4);
+                        
+                        // Paint border
+                        g2.setColor(UIStyleUtils.BUTTON_BORDER_COLOR);
+                        g2.setStroke(new BasicStroke(1));
+                        g2.drawRoundRect(1, 1, getWidth()-3, getHeight()-3, 4, 4);
+                        
+                        // Draw arrow - perfectly centered
+                        g2.setColor(UIStyleUtils.GOLDEN_COLOR);
+                        g2.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        
+                        int centerX = getWidth() / 2;
+                        int centerY = getHeight() / 2;
+                        int size = 4;
+                        
+                        if (isUp) {
+                            // Up arrow
+                            g2.drawLine(centerX - size, centerY + 2, centerX, centerY - 2);
+                            g2.drawLine(centerX, centerY - 2, centerX + size, centerY + 2);
+                        } else {
+                            // Down arrow
+                            g2.drawLine(centerX - size, centerY - 2, centerX, centerY + 2);
+                            g2.drawLine(centerX, centerY + 2, centerX + size, centerY - 2);
+                        }
+                        
+                        g2.dispose();
+                    }
+                };
+                
+                // Make sure the button fits the scrollbar width exactly
+                button.setPreferredSize(new Dimension(16, 16));
+                button.setMinimumSize(new Dimension(16, 16));
+                button.setMaximumSize(new Dimension(16, 16));
+                button.setBackground(UIStyleUtils.BUTTON_COLOR);
+                button.setBorder(BorderFactory.createEmptyBorder());
+                button.setFocusPainted(false);
+                button.setOpaque(false);
+                
+                // Add hover effect
+                button.addMouseListener(new java.awt.event.MouseAdapter() {
+                    @Override
+                    public void mouseEntered(java.awt.event.MouseEvent evt) 
+                    {
+                        button.setBackground(UIStyleUtils.BUTTON_HOVER_COLOR);
+                        button.repaint();
+                    }
+                    
+                    @Override
+                    public void mouseExited(java.awt.event.MouseEvent evt) 
+                    {
+                        button.setBackground(UIStyleUtils.BUTTON_COLOR);
+                        button.repaint();
+                    }
+                });
+                
+                return button;
+            }
+        });
+        
+        return scrollPane;
     }
 }

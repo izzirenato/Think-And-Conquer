@@ -1,15 +1,24 @@
 package trivia;
 
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Arrays;
 import java.util.Random;
+
+
+/*
+ * QuestionDatabase class manages a collection of trivia questions
+ */
+
 
 public class QuestionDatabase
 {
         private List<Question> _questions;
         private Random random;
 
+
+        // ctor
         public QuestionDatabase()
         {
                 _questions = new ArrayList<>();
@@ -17,6 +26,8 @@ public class QuestionDatabase
                 initializeQuestions();
         }
 
+
+        // populates the question database
         private void initializeQuestions()
         {
                 addHistoryAndGeographyQuestions();
@@ -25,35 +36,23 @@ public class QuestionDatabase
                 addCinemaAndMusicQuestions();
                 addScienceQuestions();
         }
-        
-        public Question getRandomQuestion(Question.Category category) 
+
+
+        // based on the category and difficulty, returns a random question
+        public Question getRandomQuestion(Question.Category category, int exactDifficulty) 
         {
                 List<Question> filteredQuestions = new ArrayList<>();
                 
-                for (Question q : _questions) {
-                if (q.getCategory() == category) {
-                        filteredQuestions.add(q);
-                }
-                }
-
-                if (filteredQuestions.isEmpty()) {
-                throw new IllegalStateException("No question available for the category: " + category.getDisplayName());
-                }
-                return filteredQuestions.get(random.nextInt(filteredQuestions.size()));
-        }
-
-        public Question getRandomQuestionWithExactDifficulty(Question.Category category, int exactDifficulty) 
-        {
-                List<Question> filteredQuestions = new ArrayList<>();
-                
-                for (Question q : _questions) {
-                        if (q.getCategory() == category && q.getDifficulty() == exactDifficulty) {
-                        filteredQuestions.add(q);
+                for (Question q : _questions) 
+                {
+                        if (q.getCategory() == category && q.getDifficulty() == exactDifficulty) 
+                        {
+                                filteredQuestions.add(q);
                         }
                 }
 
-                if (filteredQuestions.isEmpty()) {
-                        // No questions with exact difficulty found, return null
+                if (filteredQuestions.isEmpty())
+                {
                         return null;
                 }
                 
@@ -61,22 +60,7 @@ public class QuestionDatabase
         }
 
 
-        public int getQuestionCount() 
-        {
-                return _questions.size();  // total number of questions in the database
-        }
-        
-        public int getQuestionCount(Question.Category category)
-        {
-                int count = 0;
-                for (Question q : _questions) {
-                if (q.getCategory() == category) {
-                        count++;
-                }
-                }
-                return count;
-        }
-
+        // methods that add questions to the database for each category
         private void addHistoryAndGeographyQuestions()
         {
                 // Difficulty 1

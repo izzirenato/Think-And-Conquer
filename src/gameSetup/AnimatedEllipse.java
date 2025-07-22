@@ -1,21 +1,18 @@
 package gameSetup;
 
+
 import java.awt.*;
 
 import javax.swing.*;
 
+
+/*
+ * AnimatedEllipse creates an animated ellipse with a text inside it
+ */
+
+
 public class AnimatedEllipse extends JPanel
 {
-    public String _text;
-    public Color _ellipseColor;
-    public Color _textColor;
-    private float _opacity = 0.0f;
-    private Timer _animationTimer;
-    private boolean _isShowing = false;
-
-    // creates a thread
-    private Runnable _onAnimationComplete;
-
     // animation constants
     private static final int ANIMATION_DURATION = 2000;
     private static final int FADE_IN_DURATION = 500;
@@ -23,6 +20,16 @@ public class AnimatedEllipse extends JPanel
     private static final int FADE_OUT_DURATION = 500;
     private static final int ANIMATION_FPS = 60;
     private static final int FRAME_DELAY = 1000 / ANIMATION_FPS;
+
+    private boolean _isShowing = false;
+    private float _opacity = 0.0f;
+    public String _text;
+    public Color _ellipseColor;
+    public Color _textColor;
+    private Timer _animationTimer;
+
+    // creates a thread (parallel process)
+    private Runnable _onAnimationComplete;
 
 
     // ctor
@@ -55,14 +62,8 @@ public class AnimatedEllipse extends JPanel
         {
             long elapsedTime = System.currentTimeMillis() - startTimer;
 
-            if (elapsedTime <= FADE_IN_DURATION) 
-            {
-                _opacity = (float) elapsedTime / FADE_IN_DURATION;
-            } 
-            else if (elapsedTime <= FADE_IN_DURATION + DISPLAY_DURATION) 
-            {
-                _opacity = 1.0f;
-            } 
+            if (elapsedTime <= FADE_IN_DURATION) {_opacity = (float) elapsedTime / FADE_IN_DURATION;} 
+            else if (elapsedTime <= FADE_IN_DURATION + DISPLAY_DURATION) {_opacity = 1.0f;} 
             else if (elapsedTime <= ANIMATION_DURATION) 
             {
                 float fadeOutProgress = (float) (elapsedTime - (FADE_IN_DURATION + DISPLAY_DURATION)) / FADE_OUT_DURATION;
@@ -97,6 +98,10 @@ public class AnimatedEllipse extends JPanel
             _onAnimationComplete = null;
         }
     }
+
+
+    // public method to check if the animation is currently running
+    public boolean isAnimating() {return _isShowing;}
 
 
     // custom paint component
@@ -140,7 +145,7 @@ public class AnimatedEllipse extends JPanel
         g2d.drawOval(ellipseX, ellipseY, ellipseWidth, ellipseHeight);
         
         // draw text with scalable font
-        float fontSize = Math.max(20f, Math.min(36f, ellipseWidth / 15f)); // Font scalabile
+        float fontSize = Math.max(20f, Math.min(36f, ellipseWidth / 15f));
         g2d.setFont(UIStyleUtils.PROMPT_FONT.deriveFont(Font.BOLD, fontSize));
         FontMetrics fm = g2d.getFontMetrics();
         
@@ -160,11 +165,4 @@ public class AnimatedEllipse extends JPanel
         
         g2d.dispose();
     }
-
-    
-    // public method to check if the animation is currently running
-    public boolean isAnimating()
-    {
-        return _isShowing;
-    }   
 }

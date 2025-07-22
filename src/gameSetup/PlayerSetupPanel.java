@@ -226,8 +226,24 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
         // whenever the slider changes, update the number of players
         _playersSlider.addChangeListener(_ ->
         {
+            int oldNumPlayers = _numPlayers;
             _numPlayers = _playersSlider.getValue();
-            for(int i = 0; i < 4; i++) {_playerNames[i].getParent().setVisible(i < _numPlayers);}
+            
+            if (_numPlayers > oldNumPlayers) 
+            {
+                for (int i = oldNumPlayers; i < _numPlayers; i++) 
+                {
+                    // Trova il primo colore disponibile non utilizzato dagli altri giocatori
+                    Color newColor = findAvailableColor(i);
+                    _selectedColors[i] = newColor;
+                    _colorButtons[i].setBackground(newColor);
+                }
+            }
+            
+            for(int i = 0; i < 4; i++) 
+            {
+                _playerNames[i].getParent().setVisible(i < _numPlayers);
+            }
         });
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
@@ -584,20 +600,20 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
                             
                             if (_mapPanel != null && _gameActionPanel != null && _statsPanel != null) 
                             {
-                                // Clear any existing components first
+                                // clear any existing components first
                                 _parentFrame.getContentPane().removeAll();
                                 
-                                // Add components in correct order
+                                // add components in correct order
                                 _parentFrame.getContentPane().add(_mapPanel, BorderLayout.CENTER);
                                 _parentFrame.getContentPane().add(_gameActionPanel, BorderLayout.SOUTH);
                                 _parentFrame.getContentPane().add(_statsPanel, BorderLayout.EAST);
                                 
-                                // Set initial stats panel visibility
+                                // set initial stats panel visibility
                                 _statsPanel.setVisible(false);
                                 
                                 GameLauncher.showGameMenu();
                                 
-                                // Force complete refresh
+                                // orce complete refresh
                                 _parentFrame.getContentPane().revalidate();
                                 _parentFrame.getContentPane().repaint();
                                 
@@ -680,5 +696,28 @@ public class PlayerSetupPanel extends JPanel implements GameLauncher.Scalable
             _selectedColors[index] = color;
             _colorButtons[index].setBackground(color);
         }
+    }
+
+    // trova un colore disponibile che non sia già utilizzato
+    private Color findAvailableColor(int playerIndex)
+    {
+        for (Color availableColor : _availableColors)
+        {
+            boolean isUsed = false;
+            for (int i = 0; i < _numPlayers; i++)
+            {
+                if (i != playerIndex && _selectedColors[i].equals(availableColor))
+                {
+                    isUsed = true;
+                    break;
+                }
+            }
+            
+            if (!isUsed)
+            {
+                return availableColor;
+            }
+        }
+        return _availableColors[0];
     }
 }

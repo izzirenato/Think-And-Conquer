@@ -1,12 +1,19 @@
 package trivia;
 
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+
+/*
+ * Question class represents a trivia question with its text, correct answer, options, category, and difficulty level.
+ */
+
+
 public class Question
 {
-    public enum Category        // special type of class that represents a group of constants
+    public enum Category
     {
         HISTORY_GEOGRAPHY("History and Geography"),
         SPORT("Sport"),
@@ -22,12 +29,14 @@ public class Question
         public String getDisplayName(){ return _displayName; }
     }
 
-    private String _text;               //  question
+    private String _text;
     private String _correctAnswer;
     private List<String> _options;
     private Category _category;
-    private int _difficulty;          // from 1 to 5, in 5 we have the harder ones
+    private int _difficulty;
 
+
+    // ctor
     public Question(String text, String correctAnswer, List<String> wrongOptions, Category category, int difficulty)
     {
         _text = text;
@@ -40,25 +49,20 @@ public class Question
         Collections.shuffle(_options);
     }
 
-    public String getText() { return _text; }
-    public String getCorrectAnswer() { return _correctAnswer; }
-    public Category getCategory() { return _category; }
-    public int getDifficulty() { return _difficulty; }
-    public List<String> getOptions() { return _options; }
 
-    public boolean checkAnswer(String selectedOption)
+    // public getters
+    public String getText() {return _text;}
+    public String getCorrectAnswer() {return _correctAnswer;}
+    public Category getCategory() {return _category;}
+    public int getDifficulty() {return _difficulty;}
+    public List<String> getOptions() {return _options;}
+    public boolean checkAnswer(String selectedOption) {return _correctAnswer.equalsIgnoreCase(selectedOption.trim());}
+
+    // static method to get difficulty text based on difficulty level
+    public static String getDifficultyText(int difficulty, boolean includePoints) 
     {
-        return _correctAnswer.equalsIgnoreCase(selectedOption.trim());
-    }
-    
-    /**
-     * Returns a textual representation of the difficulty level
-     * @param difficulty The difficulty level (1-5)
-     * @param includePoints Whether to include points information
-     * @return A string describing the difficulty
-     */
-    public static String getDifficultyText(int difficulty, boolean includePoints) {
-        String diffText = switch (difficulty) {
+        String diffText = switch (difficulty) 
+        {
             case 1 -> "Too Easy";
             case 2 -> "Easy";
             case 3 -> "Medium";
@@ -67,20 +71,12 @@ public class Question
             default -> "Medium";
         };
         
-        if (includePoints) {
+        if (includePoints) 
+        {
             int points = difficulty * 100;
             return diffText + " (" + points + " points)";
         }
         
         return diffText;
-    }
-    
-    /**
-     * Gets the difficulty text for this question
-     * @param includePoints Whether to include points information
-     * @return A string describing the difficulty
-     */
-    public String getDifficultyText(boolean includePoints) {
-        return getDifficultyText(_difficulty, includePoints);
     }
 }

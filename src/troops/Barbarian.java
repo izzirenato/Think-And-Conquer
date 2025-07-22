@@ -1,6 +1,8 @@
 package troops;
 
+
 import trivia.Question;
+
 
 public class Barbarian extends Troop
 {

@@ -155,10 +155,7 @@ public class SplashScreen extends JPanel implements GameLauncher.Scalable
     }
 
 
-    // get title font
+    // getters for fonts
     public static Font getTitleFont() { return _titleFont; }
-
-
-    // get prompt font
     public static Font getPromptFont() { return _promptFont; }
 }

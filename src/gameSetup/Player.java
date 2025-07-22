@@ -8,19 +8,24 @@ import java.awt.Color;
 
 import trivia.Question;
 
+
 public class Player
 {
+    // private fields
     private Color _color;
     private String _name;
-    private int _score;;
+    private int _score;
     private int _correctAnswers;
     private int _wrongAnswers;
     private int _points;
     private boolean _isEliminated;
+    private boolean _isWinner = false;
     private Map<String, Integer> _availableTroops;
     private Map<Question.Category, Integer> _correctAnswersByCategory;
     private Map<Question.Category, Integer> _wrongAnswersByCategory;
 
+
+    // ctor
     public Player(Color color, String name)
     {
         _color = color;
@@ -41,16 +46,19 @@ public class Player
         }
     }
 
-    // public getters
+
+    // basic getters
     public Color getColor() {return _color;}
     public String getName() {return _name;}
     public int getScore() {return _score;}
     public int getCorrectAnswers() {return _correctAnswers;}
     public int getWrongAnswers() {return _wrongAnswers;}
     public int getPoints() {return _points;}
-    public void modifyPoints(int newPoints) {_points += newPoints;}
     public Map<Question.Category, Integer> getCorrectAnswersByCategory() {return new HashMap<>(_correctAnswersByCategory);}
     public Map<Question.Category, Integer> getWrongAnswersByCategory() {return new HashMap<>(_wrongAnswersByCategory);}
+
+
+    // troops getters
     public int getAvailableTroops()
     {
         int total = 0;
@@ -60,10 +68,7 @@ public class Player
         }
         return total;
     }
-    // overloaded method to get available troops by type
     public int getAvailableTroops(String troopType) {return _availableTroops.getOrDefault(troopType, 0);}
-    
-    // method to get a map of available troops with counts greater than zero
     public Map<String, Integer> getAvailableTroopsMap() 
     {
         Map<String, Integer> availableTroops = new HashMap<>();
@@ -77,26 +82,40 @@ public class Player
         return availableTroops;
     }
 
+    // status getters
+    public boolean isEliminated() {return _isEliminated;}
+    public boolean isWinner() { return _isWinner; }
 
+    // basic setters/modifiers
     public void addScore(int points) {_score += points;}
+    public void modifyPoints(int newPoints) {_points += newPoints;}
+    public void eliminate() {_isEliminated = true;}
+    public void setWinner(boolean isWinner) { _isWinner = isWinner; }
 
-
+    // statistics methods - simple increment
     public void incrementCorrectAnswers() {_correctAnswers++;}
-    // Overloaded method to increment correct answers by category
+    public void incrementWrongAnswers() {_wrongAnswers++;}
+
+    // statistics methods - with category
     public void incrementCorrectAnswers(Question.Category category) 
     {
         _correctAnswers++;
         _correctAnswersByCategory.put(category, _correctAnswersByCategory.get(category) + 1);
     }
-    public void incrementWrongAnswers() {_wrongAnswers++;}
-    // Overloaded method to increment wrong answers by category
     public void incrementWrongAnswers(Question.Category category) 
     {
         _wrongAnswers++;
         _wrongAnswersByCategory.put(category, _wrongAnswersByCategory.get(category) + 1);
     }
 
+    // statistics methods - unified update
+    public void updateStatistics(boolean correct, Question.Category category) 
+    {
+        if (correct) {incrementCorrectAnswers(category);} 
+        else {incrementWrongAnswers(category);}
+    }
 
+    // troops management methods
     public void addTroops(String troopType, int count)
     {
         _availableTroops.put(troopType, _availableTroops.getOrDefault(troopType, 0) + count);
@@ -111,7 +130,7 @@ public class Player
             int newCount = _availableTroops.getOrDefault(troopType, 0) - troopCount;
             if (newCount <= 0) 
             {
-                _availableTroops.remove(troopType);  // Remove entry if count is zero or negative
+                _availableTroops.remove(troopType);
             } 
             else 
             {
@@ -119,7 +138,4 @@ public class Player
             }
         }
     }
-
-    public boolean isEliminated() {return _isEliminated;}
-    public void eliminate() {_isEliminated = true;}
 }

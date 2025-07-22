@@ -4,149 +4,164 @@ import gameSetup.*;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.List;
 
-/**
- * QuizPanel displays trivia questions in different game scenarios.
- * This class handles three main scenarios:
- * 1. Territory-based questions (attack/defense scenarios)
- * 2. Duel questions (player vs player with specific difficulty)
- * 3. Standalone questions (simple quiz display)
+
+/*
+ * QuizPanel displays trivia questions in different game scenarios
+ * handles territory-based questions, duel questions, and standalone questions
  */
-public class QuizPanel extends JPanel {
+
+
+public class QuizPanel extends JPanel 
+{
+    // interface to match callback pattern
+    public interface QuestionResponseListener 
+    {
+        void onQuestionAnswered(boolean correct);
+    }
     
-    // ===========================================
-    // CONSTANTS AND CONFIGURATION
-    // ===========================================
-    
+    // constants and configuration
     private static final int DEFAULT_TIME_SECONDS = 20;
-    private static final Color SELECTED_COLOR = new Color(255, 215, 0);  // Gold when selected
-    private static final Color CORRECT_COLOR = new Color(50, 205, 50);   // Green when correct
-    private static final Color INCORRECT_COLOR = new Color(220, 20, 60); // Red when incorrect
+    private static final Color SELECTED_COLOR = new Color(255, 215, 0);  // gold when selected
+    private static final Color CORRECT_COLOR = new Color(50, 205, 50);   // green when correct
+    private static final Color INCORRECT_COLOR = new Color(220, 20, 60); // red when incorrect
     
-    // ===========================================
-    // CORE COMPONENTS AND STATE
-    // ===========================================
-    
+    // core components
     private final Question _question;
     private final QuestionResponseListener _responseListener;
     
-    // UI Components
+    // ui components
     private CircularTimer _circularTimer;
     private JPanel _timerPanel;
     private CustomAnswerButton[] _answerButtons;
     private javax.swing.Timer _countdownTimer;
     
-    // Quiz State
+    // quiz state
     private int _secondsRemaining = DEFAULT_TIME_SECONDS;
     private boolean _answered = false;
     private boolean _answerCorrect = false;
     private int _selectedIndex = -1;
     
-    // Player Information (for duel scenarios)
+    // player information
     private Player _currentPlayer;
     private Player _attacker;
     private Player _defender;
     private int _attackerScore;
     private int _defenderScore;
     
-    // Prevents duplicate callback firing
+    // prevents duplicate callback firing
     private boolean _callbackFired = false;
     
-    // ===========================================
-    // INTERFACES
-    // ===========================================
     
-    public interface QuestionResponseListener {
-        void onQuestionAnswered(boolean correct);
-    }
-    
-    // ===========================================
-    // CONSTRUCTORS BY SCENARIO
-    // ===========================================
-    
-    /**
-     * SCENARIO 1: Duel Question
-     * Used when two players are dueling with specific scoring
-     */
+    // ctor for duel question
     public QuizPanel(Question question, Player currentPlayer, Player attacker, Player defender, 
-                     int attackerScore, int defenderScore, QuestionResponseListener listener) {
-        this._question = question;
-        this._currentPlayer = currentPlayer;
-        this._attacker = attacker;
-        this._defender = defender;
-        this._attackerScore = attackerScore;
-        this._defenderScore = defenderScore;
-        this._responseListener = listener;
+                     int attackerScore, int defenderScore, QuestionResponseListener listener) 
+    {
+        _question = question;
+        _currentPlayer = currentPlayer;
+        _attacker = attacker;
+        _defender = defender;
+        _attackerScore = attackerScore;
+        _defenderScore = defenderScore;
+        _responseListener = listener;
+
+        initializeAndSetup();
+    }
+    
+    
+    // ctor for standalone question
+    public QuizPanel(Question question, QuestionResponseListener listener, Player currentPlayer) 
+    {
+        _question = question;
+        _responseListener = listener;
+        _currentPlayer = currentPlayer;
         
         initializeAndSetup();
     }
     
     
-    
-    /**
-     * SCENARIO 4: Standalone Question
-     * Used for displaying a pre-determined question
-     */
-    public QuizPanel(Question question, QuestionResponseListener listener, Player currentPlayer) {
-        this._question = question;
-        this._responseListener = listener;
-        this._currentPlayer = currentPlayer;
-        
-        initializeAndSetup();
-    }
-    
-    // ===========================================
-    // INITIALIZATION AND UI SETUP
-    // ===========================================
-    
-    private void initializeAndSetup() {
+    // initializes components and sets up the ui
+    private void initializeAndSetup() 
+    {
         setupMainLayout();
         createTopSection();
         createQuestionSection();
         createAnswerSection();
         startQuizTimer();
+        
+        // ensure this panel doesn't process game control keys
+        addKeyListener(new KeyAdapter() 
+        {
+            @Override
+            public void keyPressed(KeyEvent e) 
+            {
+                int keyCode = e.getKeyCode();
+                if (keyCode == KeyEvent.VK_SPACE || keyCode == KeyEvent.VK_G || 
+                    keyCode == KeyEvent.VK_I || keyCode == KeyEvent.VK_F11 || 
+                    keyCode == KeyEvent.VK_ESCAPE) 
+                {
+                    e.consume();
+                }
+            }
+        });
+        setFocusable(true);
     }
     
-    private void setupMainLayout() {
+    
+    // sets up the main panel layout
+    private void setupMainLayout() 
+    {
         setLayout(new BorderLayout(15, 15));
         setBackground(UIStyleUtils.BUTTON_COLOR);
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
     }
     
-    private void createTopSection() {
+    
+    // creates the top section with player info, timer, and category
+    private void createTopSection() 
+    {
         JPanel topPanel = new JPanel(new GridLayout(1, 3));
         topPanel.setPreferredSize(new Dimension(getWidth(), 80));
         topPanel.setOpaque(false);
         
-        // Left: Player information
+        // left: player information
         topPanel.add(createPlayerInfoPanel());
         
-        // Center: Timer
+        // center: timer
         topPanel.add(createTimerPanel());
         
-        // Right: Category information
+        // right: category information
         topPanel.add(createCategoryPanel());
         
-        // Bottom section for scores (if in duel mode)
+        // bottom section for scores (if in duel mode)
         JPanel scoreSection = createScoreSection();
         
-        if (scoreSection != null) {
+        if (scoreSection != null) 
+        {
             JPanel combinedTop = new JPanel(new BorderLayout());
             combinedTop.setOpaque(false);
             combinedTop.add(topPanel, BorderLayout.NORTH);
             combinedTop.add(scoreSection, BorderLayout.SOUTH);
             add(combinedTop, BorderLayout.NORTH);
-        } else {
+        } 
+        else 
+        {
             add(topPanel, BorderLayout.NORTH);
         }
     }
     
-    private JPanel createPlayerInfoPanel() {
+    
+    // creates the player information panel
+    private JPanel createPlayerInfoPanel() 
+    {
         JPanel playerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 25));
         playerPanel.setOpaque(false);
         
-        if (_currentPlayer != null) {
+        if (_currentPlayer != null) 
+        {
             JLabel prefixLabel = new JLabel("Question for ");
             prefixLabel.setFont(UIStyleUtils.PROMPT_FONT.deriveFont(Font.BOLD, 24f));
             prefixLabel.setForeground(UIStyleUtils.GOLDEN_COLOR);
@@ -162,7 +177,10 @@ public class QuizPanel extends JPanel {
         return playerPanel;
     }
     
-    private JPanel createTimerPanel() {
+    
+    // creates the timer panel
+    private JPanel createTimerPanel() 
+    {
         _timerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 10));
         _timerPanel.setOpaque(false);
         _timerPanel.setPreferredSize(new Dimension(120, 80));
@@ -174,6 +192,8 @@ public class QuizPanel extends JPanel {
         return _timerPanel;
     }
     
+    
+    // creates the category panel
     private JPanel createCategoryPanel() 
     {
         JPanel categoryPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 25));
@@ -187,9 +207,13 @@ public class QuizPanel extends JPanel {
         return categoryPanel;
     }
     
-    private JPanel createScoreSection() {
-        if (_attacker == null || _defender == null) {
-            // Create difficulty panel for non-duel scenarios
+    
+    // creates the score section for duel mode or difficulty panel for standalone
+    private JPanel createScoreSection() 
+    {
+        if (_attacker == null || _defender == null) 
+        {
+            // create difficulty panel for non-duel scenarios
             JPanel difficultyPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
             difficultyPanel.setOpaque(false);
             
@@ -202,11 +226,11 @@ public class QuizPanel extends JPanel {
             return difficultyPanel;
         }
         
-        // Create duel score panel
+        // create duel score panel
         JPanel scorePanel = new JPanel(new BorderLayout(10, 0));
         scorePanel.setOpaque(false);
         
-        // Attacker score (left)
+        // attacker score (left)
         JPanel attackerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         attackerPanel.setOpaque(false);
         JLabel attackerLabel = new JLabel(_attacker.getName() + ": " + _attackerScore);
@@ -214,7 +238,7 @@ public class QuizPanel extends JPanel {
         attackerLabel.setForeground(_attacker.getColor());
         attackerPanel.add(attackerLabel);
         
-        // Difficulty (center)
+        // difficulty (center)
         JPanel centerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         centerPanel.setOpaque(false);
         String difficultyText = "Difficulty: " + Question.getDifficultyText(_question.getDifficulty(), false);
@@ -223,7 +247,7 @@ public class QuizPanel extends JPanel {
         difficultyLabel.setForeground(UIStyleUtils.GOLDEN_COLOR);
         centerPanel.add(difficultyLabel);
         
-        // Defender score (right)
+        // defender score (right)
         JPanel defenderPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         defenderPanel.setOpaque(false);
         JLabel defenderLabel = new JLabel(_defender.getName() + ": " + _defenderScore);
@@ -238,15 +262,20 @@ public class QuizPanel extends JPanel {
         return scorePanel;
     }
     
-    private void createQuestionSection() {
+    
+    // creates the question section with text display
+    private void createQuestionSection() 
+    {
         JPanel questionPanel = new JPanel(new BorderLayout());
-        questionPanel.setBorder(BorderFactory.createCompoundBorder(
+        questionPanel.setBorder(BorderFactory.createCompoundBorder
+        (
             BorderFactory.createLineBorder(UIStyleUtils.GOLDEN_COLOR, 4),
-            BorderFactory.createEmptyBorder(20, 20, 20, 20)));
+            BorderFactory.createEmptyBorder(20, 20, 20, 20)
+        ));
         questionPanel.setBackground(new Color(40, 40, 70));
         questionPanel.setPreferredSize(new Dimension(700, 250));
         
-        // Create responsive question text display
+        // create responsive question text display
         JTextPane questionText = new JTextPane();
         questionText.setContentType("text/plain");
         questionText.setText(_question.getText());
@@ -266,20 +295,31 @@ public class QuizPanel extends JPanel {
         add(questionPanel, BorderLayout.CENTER);
     }
     
-    private Font calculateQuestionFont() {
-        // Responsive font sizing based on screen dimensions
+    
+    // calculates responsive font size for question text
+    private Font calculateQuestionFont() 
+    {
+        // responsive font sizing based on screen dimensions
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         
-        if (screenSize.width > 1600) {
+        if (screenSize.width > 1600) 
+        {
             return UIStyleUtils.PROMPT_FONT.deriveFont(48f);
-        } else if (screenSize.width > 1200) {
+        } 
+        else if (screenSize.width > 1200) 
+        {
             return UIStyleUtils.PROMPT_FONT.deriveFont(42f);
-        } else {
+        } 
+        else 
+        {
             return UIStyleUtils.PROMPT_FONT.deriveFont(32f);
         }
     }
     
-    private void createAnswerSection() {
+    
+    // creates the answer buttons section
+    private void createAnswerSection() 
+    {
         JPanel answersPanel = new JPanel();
         answersPanel.setLayout(new GridLayout(0, 1, 10, 10));
         answersPanel.setOpaque(false);
@@ -287,7 +327,8 @@ public class QuizPanel extends JPanel {
         List<String> options = _question.getOptions();
         _answerButtons = new CustomAnswerButton[options.size()];
         
-        for (int i = 0; i < options.size(); i++) {
+        for (int i = 0; i < options.size(); i++) 
+        {
             final int index = i;
             _answerButtons[i] = new CustomAnswerButton(options.get(i));
             _answerButtons[i].addActionListener(_ -> handleAnswerSelection(index));
@@ -297,23 +338,26 @@ public class QuizPanel extends JPanel {
         add(answersPanel, BorderLayout.EAST);
     }
     
-    // ===========================================
-    // QUIZ LOGIC AND TIMING
-    // ===========================================
     
-    private void startQuizTimer() {
-        if (_circularTimer != null) {
+    // starts the quiz timer
+    private void startQuizTimer() 
+    {
+        if (_circularTimer != null) 
+        {
             _circularTimer.setTime(_secondsRemaining);
         }
         
-        _countdownTimer = new javax.swing.Timer(1000, _ -> {
+        _countdownTimer = new javax.swing.Timer(1000, _ -> 
+        {
             _secondsRemaining--;
             
-            if (_circularTimer != null) {
+            if (_circularTimer != null) 
+            {
                 _circularTimer.setTime(_secondsRemaining);
             }
             
-            if (_secondsRemaining <= 0) {
+            if (_secondsRemaining <= 0) 
+            {
                 handleTimeExpired();
             }
         });
@@ -321,39 +365,48 @@ public class QuizPanel extends JPanel {
         _countdownTimer.start();
     }
     
-    private void handleAnswerSelection(int index) {
-        if (_answered) return;
+    
+    // handles answer selection by user
+    private void handleAnswerSelection(int index) 
+    {
+        if (_answered) {return;}
         
         _answered = true;
         _selectedIndex = index;
         stopTimer();
         
-        // Disable hover effects on all buttons
-        for (CustomAnswerButton button : _answerButtons) {
+        // disable hover effects on all buttons
+        for (CustomAnswerButton button : _answerButtons) 
+        {
             button.disableHover();
         }
         
-        // Show selection in gold (quiz show style)
+        // show selection in gold (quiz show style)
         _answerButtons[_selectedIndex].lockColor(SELECTED_COLOR, Color.BLACK);
         
-        // Wait 2 seconds before revealing if answer is correct
-        javax.swing.Timer selectionDelay = new javax.swing.Timer(2000, _ -> {
+        // wait 2 seconds before revealing if answer is correct
+        javax.swing.Timer selectionDelay = new javax.swing.Timer(2000, _ -> 
+        {
             processAnswer(_question.getOptions().get(_selectedIndex));
         });
         selectionDelay.setRepeats(false);
         selectionDelay.start();
     }
     
-    private void handleTimeExpired() {
+    
+    // handles when time expires
+    private void handleTimeExpired() 
+    {
         stopTimer();
         _answered = true;
         
-        // Disable hover on all buttons
-        for (CustomAnswerButton button : _answerButtons) {
+        // disable hover on all buttons
+        for (CustomAnswerButton button : _answerButtons) 
+        {
             button.disableHover();
         }
         
-        // Replace timer with "Time's up!" message
+        // replace timer with "time's up!" message
         _timerPanel.removeAll();
         JLabel timeUpLabel = new JLabel("Time's up!", JLabel.CENTER);
         timeUpLabel.setFont(UIStyleUtils.PROMPT_FONT.deriveFont(Font.BOLD, 24f));
@@ -363,8 +416,9 @@ public class QuizPanel extends JPanel {
         _timerPanel.revalidate();
         _timerPanel.repaint();
         
-        // Show correct answer after brief delay
-        javax.swing.Timer resultDelay = new javax.swing.Timer(1000, _ -> {
+        // show correct answer after brief delay
+        javax.swing.Timer resultDelay = new javax.swing.Timer(1000, _ -> 
+        {
             highlightCorrectAnswer();
             finishQuizWithDelay(false, 2000);
         });
@@ -372,13 +426,19 @@ public class QuizPanel extends JPanel {
         resultDelay.start();
     }
     
-    private void processAnswer(String selectedAnswer) {
+    
+    // processes the selected answer and shows result
+    private void processAnswer(String selectedAnswer) 
+    {
         boolean correct = _question.checkAnswer(selectedAnswer);
         _answerCorrect = correct;
         
-        if (correct) {
+        if (correct) 
+        {
             _answerButtons[_selectedIndex].lockColor(CORRECT_COLOR, Color.WHITE);
-        } else {
+        } 
+        else 
+        {
             _answerButtons[_selectedIndex].lockColor(INCORRECT_COLOR, Color.WHITE);
             highlightCorrectAnswer();
         }
@@ -386,21 +446,32 @@ public class QuizPanel extends JPanel {
         finishQuizWithDelay(_answerCorrect, 5000);
     }
     
-    private void highlightCorrectAnswer() {
+    
+    // highlights the correct answer button
+    private void highlightCorrectAnswer() 
+    {
         String correctAnswer = _question.getCorrectAnswer();
-        for (int i = 0; i < _answerButtons.length; i++) {
-            if (_question.getOptions().get(i).equals(correctAnswer) && i != _selectedIndex) {
+        for (int i = 0; i < _answerButtons.length; i++) 
+        {
+            if (_question.getOptions().get(i).equals(correctAnswer) && i != _selectedIndex) 
+            {
                 _answerButtons[i].lockColor(CORRECT_COLOR, Color.WHITE);
                 break;
             }
         }
     }
     
-    private void finishQuizWithDelay(boolean wasCorrect, int delayMs) {
-        javax.swing.Timer finishTimer = new javax.swing.Timer(delayMs, _ -> {
-            if (_responseListener != null) {
-                // Prevent duplicate callback firing
-                if (_callbackFired) {
+    
+    // finishes the quiz after a delay and fires callback
+    private void finishQuizWithDelay(boolean wasCorrect, int delayMs) 
+    {
+        javax.swing.Timer finishTimer = new javax.swing.Timer(delayMs, _ -> 
+        {
+            if (_responseListener != null) 
+            {
+                // prevent duplicate callback firing
+                if (_callbackFired) 
+                {
                     System.out.println("WARNING: Avoiding duplicate callback in QuizPanel");
                     return;
                 }
@@ -412,17 +483,25 @@ public class QuizPanel extends JPanel {
         finishTimer.start();
     }
     
-    private void stopTimer() {
-        if (_countdownTimer != null && _countdownTimer.isRunning()) {
+    
+    // stops the countdown timer
+    private void stopTimer() 
+    {
+        if (_countdownTimer != null && _countdownTimer.isRunning()) 
+        {
             _countdownTimer.stop();
         }
         
-        if (_circularTimer != null) {
-            _circularTimer.setOpacity(0.0f); // Make transparent but maintain space
+        if (_circularTimer != null) 
+        {
+            _circularTimer.setOpacity(0.0f); // make transparent but maintain space
         }
     }
     
-    public boolean isAnswerCorrect() {
+    
+    // returns whether the answer was correct
+    public boolean isAnswerCorrect() 
+    {
         return _answerCorrect;
     }
 }

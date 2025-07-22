@@ -1,17 +1,25 @@
 package troops;
 
+
 import java.awt.image.BufferedImage;
+
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Responsible for troop creation and management
+
+/*
+ * TroopManager is a class that manages different types of troops and their icons
+ * Internal management of troops and cache
  */
-public class TroopManager {
+
+
+public class TroopManager 
+{
     private static final Map<String, Troop> troopTypes = initializeTroopTypes();
     private static final Map<String, BufferedImage> troopIcons = new HashMap<>();
     
-    private static Map<String, Troop> initializeTroopTypes() {
+    private static Map<String, Troop> initializeTroopTypes() 
+    {
         Map<String, Troop> types = new HashMap<>();
         types.put("Archer", new Archer());
         types.put("Wizard", new Wizard());
@@ -21,53 +29,72 @@ public class TroopManager {
         return types;
     }
     
-    /**
-     * Get all available troop types
-     */
-    public static Troop[] getAllTroops() {
+    // gets all troops
+    public static Troop[] getAllTroops() 
+    {
         return troopTypes.values().toArray(new Troop[0]);
     }
-    
-    /**
-     * Get a troop by type name
-     */
-    public static Troop getTroop(String troopType) {
+
+
+    // gets a troop by type name
+    public static Troop getTroop(String troopType) 
+    {
         return troopTypes.get(troopType);
     }
 
-    /**
-     * Get a troop's icon
-     */
-    public static BufferedImage getTroopIcon(String troopType) {
-        BufferedImage icon = troopIcons.get(troopType);
-        if (icon == null) {
-            // Se l'icona non è caricata, tenta di caricarla
-            try {
-                Troop troop = getTroop(troopType);
-                if (troop != null) {
-                    icon = troop.getIcon();
-                    troopIcons.put(troopType, icon);
-                }
-            } catch (Exception e) {
-                System.err.println("Errore nel caricamento dell'icona per " + troopType + ": " + e.getMessage());
-            }
+
+    // gets a troop's icon
+    public static BufferedImage getTroopIcon(String troopType) 
+    {
+        // Se non è ancora caricata, usa il metodo di caricamento centralizzato
+        if (!troopIcons.containsKey(troopType)) 
+        {
+            loadSingleTroopIcon(troopType);
         }
-        return icon;
+        return troopIcons.get(troopType);
     }
     
-    // Aggiungere un blocco statico per caricare le icone all'avvio
-    static {
+
+    // loads a single troop icon by type
+    private static void loadSingleTroopIcon(String troopType) 
+    {
+        try 
+        {
+            Troop troop = getTroop(troopType);
+            if (troop != null) 
+            {
+                BufferedImage icon = troop.getIcon();
+                if (icon != null) 
+                {
+                    troopIcons.put(troopType, icon);
+                    System.out.println("Loaded icon for: " + troopType);
+                }
+            }
+        } 
+        catch (Exception e) 
+        {
+            System.err.println("Errore nel caricamento dell'icona per " + troopType + ": " + e.getMessage());
+        }
+    }
+
+    
+    // load all troop icons at class initialization
+    static 
+    {
         loadTroopIcons();
     }
 
-    /**
-     * Load all troop icons
-     */
-    public static void loadTroopIcons() {
-        for (Troop troop : troopTypes.values()) {
-            try {
+    // Load all troop icons
+    public static void loadTroopIcons() 
+    {
+        for (Troop troop : troopTypes.values()) 
+        {
+            try 
+            {
                 troopIcons.put(troop.getName(), troop.getIcon());
-            } catch (Exception e) {
+            } 
+            catch (Exception e) 
+            {
                 System.err.println("Failed to load icon for " + troop.getName());
             }
         }

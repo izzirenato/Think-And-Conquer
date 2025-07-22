@@ -12,8 +12,8 @@ import trivia.Question;
 
 
 /*
- * StatsPanel displays comprehensive statistics for all players in the game
- * Updates in real-time during fights and other game events
+ * StatsPanel displays statistics for all players in the game
+ * really useful to plan strategies
  */
 
 
@@ -23,6 +23,7 @@ public class StatsPanel extends JPanel
     private final JPanel _allPlayersPanel;
     private boolean _isVisible;
 
+
     // ctor
     public StatsPanel(GameManager gameManager) 
     {
@@ -31,14 +32,12 @@ public class StatsPanel extends JPanel
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         
-        // Aumenta lievemente l'altezza
-        setPreferredSize(new Dimension(285, 650)); // Era 275x600
-        setMinimumSize(new Dimension(310, 450));   // Era 300x400
+        setPreferredSize(new Dimension(285, 650));
+        setMinimumSize(new Dimension(310, 450));
 
         _allPlayersPanel = createAllPlayersPanel();
         
-        // Crea uno JScrollPane con stile personalizzato
-        JScrollPane scrollPane = createStyledScrollPane(_allPlayersPanel);
+        JScrollPane scrollPane = UIStyleUtils.createStyledScrollPane(_allPlayersPanel);
         add(scrollPane, BorderLayout.CENTER);
         
         setVisible(false);
@@ -116,22 +115,23 @@ public class StatsPanel extends JPanel
             JPanel playerPanel = new JPanel();
             playerPanel.setLayout(new BoxLayout(playerPanel, BoxLayout.Y_AXIS));
             
-            // Stesso sfondo per tutti i giocatori
             playerPanel.setBackground(new Color(40, 40, 70, 180));
             
             String playerTitle = player.getName();
             
-            // Crea un border personalizzato con sfondo bianco per il current player
-            if (player == currentPlayer) {
+            if (player == currentPlayer) 
+            {
                 playerPanel.setBorder(createStyledBorderWithWhiteBackground(playerTitle, player.getColor()));
-            } else {
+            } 
+            else 
+            {
                 playerPanel.setBorder(createStyledBorder(playerTitle, player.getColor()));
             }
-            
+
             addStatsLabel(playerPanel, String.format("Points: %d/%d", player.getPoints(), _gameManager.getMaxPoints()), Color.WHITE);
             addStatsLabel(playerPanel, String.format("Correct: %d | Wrong: %d", player.getCorrectAnswers(), player.getWrongAnswers()), Color.WHITE);
             
-            // Category performance ratios
+            // category performance ratios
             addStatsLabel(playerPanel, "Category Performance:", Color.YELLOW);
             for (Question.Category category : Question.Category.values()) 
             {
@@ -192,121 +192,6 @@ public class StatsPanel extends JPanel
         _isVisible = !_isVisible;
         setVisible(_isVisible);
     }
-    
-    // Crea uno scroll pane con stile coerente al gioco
-    private JScrollPane createStyledScrollPane(JComponent component) 
-    {
-        JScrollPane scrollPane = new JScrollPane(component);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        
-        // Styling per la scrollbar verticale
-        JScrollBar verticalBar = scrollPane.getVerticalScrollBar();
-        verticalBar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
-            @Override
-            protected void configureScrollBarColors() {
-                // Colori coerenti con il tema del gioco
-                trackColor = UIStyleUtils.BUTTON_BORDER_COLOR;
-                thumbColor = UIStyleUtils.BUTTON_COLOR;
-                thumbHighlightColor = UIStyleUtils.BUTTON_HOVER_COLOR;
-                thumbLightShadowColor = UIStyleUtils.GOLDEN_COLOR;
-                thumbDarkShadowColor = new Color(60, 30, 15);
-            }
-            
-            @Override
-            protected JButton createDecreaseButton(int orientation) {
-                return createStyledScrollButton("▲");
-            }
-            
-            @Override
-            protected JButton createIncreaseButton(int orientation) {
-                return createStyledScrollButton("▼");
-            }
-            
-            @Override
-            protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
-                // Disegna il thumb con gradiente
-                GradientPaint gradient = new GradientPaint(
-                    thumbBounds.x, thumbBounds.y, UIStyleUtils.BUTTON_HOVER_COLOR,
-                    thumbBounds.x + thumbBounds.width, thumbBounds.y, UIStyleUtils.BUTTON_COLOR
-                );
-                g2d.setPaint(gradient);
-                g2d.fillRoundRect(thumbBounds.x + 2, thumbBounds.y + 2, 
-                                thumbBounds.width - 4, thumbBounds.height - 4, 8, 8);
-                
-                // Bordo dorato
-                g2d.setColor(UIStyleUtils.GOLDEN_COLOR);
-                g2d.setStroke(new BasicStroke(1.5f));
-                g2d.drawRoundRect(thumbBounds.x + 2, thumbBounds.y + 2, 
-                                thumbBounds.width - 4, thumbBounds.height - 4, 8, 8);
-                
-                g2d.dispose();
-            }
-            
-            @Override
-            protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setColor(UIStyleUtils.BUTTON_BORDER_COLOR);
-                g2d.fillRoundRect(trackBounds.x + 4, trackBounds.y, 
-                                trackBounds.width - 8, trackBounds.height, 6, 6);
-                g2d.dispose();
-            }
-        });
-        
-        verticalBar.setPreferredSize(new Dimension(16, 0));
-        verticalBar.setOpaque(false);
-        
-        return scrollPane;
-    }
-    
-    // Crea bottoni stilizzati per la scrollbar
-    private JButton createStyledScrollButton(String text) {
-        JButton button = new JButton(text) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
-                // Sfondo con gradiente
-                GradientPaint gradient = new GradientPaint(
-                    0, 0, getModel().isPressed() ? UIStyleUtils.BUTTON_COLOR : UIStyleUtils.BUTTON_HOVER_COLOR,
-                    0, getHeight(), UIStyleUtils.BUTTON_BORDER_COLOR
-                );
-                g2d.setPaint(gradient);
-                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 4, 4);
-                
-                // Bordo
-                g2d.setColor(UIStyleUtils.GOLDEN_COLOR);
-                g2d.setStroke(new BasicStroke(1.0f));
-                g2d.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 4, 4);
-                
-                // Testo
-                g2d.setColor(Color.WHITE);
-                g2d.setFont(getFont());
-                FontMetrics fm = g2d.getFontMetrics();
-                int textX = (getWidth() - fm.stringWidth(getText())) / 2;
-                int textY = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
-                g2d.drawString(getText(), textX, textY);
-                
-                g2d.dispose();
-            }
-        };
-        
-        button.setPreferredSize(new Dimension(16, 16));
-        button.setBorder(BorderFactory.createEmptyBorder());
-        button.setContentAreaFilled(false);
-        button.setFocusPainted(false);
-        button.setOpaque(false);
-        button.setFont(new Font("SansSerif", Font.BOLD, 8));
-        
-        return button;
-    }
 
     // creates a styled border with a title in the player's color and white background for current player
     private Border createStyledBorderWithWhiteBackground(String title, Color playerColor) 
@@ -314,17 +199,18 @@ public class StatsPanel extends JPanel
         Border line = BorderFactory.createLineBorder(UIStyleUtils.GOLDEN_COLOR, 2);
         Border empty = BorderFactory.createEmptyBorder(8, 8, 8, 8);
         
-        // Determina se usare sfondo bianco o nero basandosi sul colore del player
         boolean useWhiteBackground = playerColor.equals(Color.RED) || 
                                    playerColor.equals(Color.BLUE) || 
-                                   playerColor.equals(new Color(128, 0, 128)); // purple
-        
-        TitledBorder titledBorder = new TitledBorder(
+                                   playerColor.equals(new Color(128, 0, 128));
+
+        TitledBorder titledBorder = new TitledBorder
+        (
             BorderFactory.createCompoundBorder(line, empty), 
             title,
             TitledBorder.CENTER, 
             TitledBorder.TOP
-        ) {
+        ) 
+        {
             @Override
             public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
                 Graphics2D g2d = (Graphics2D) g.create();
@@ -338,22 +224,18 @@ public class StatsPanel extends JPanel
                     int titleWidth = fm.stringWidth(getTitle());
                     int titleHeight = fm.getHeight();
                     
-                    // Calcola il centro del titolo
                     int titleX = x + (width - titleWidth) / 2;
                     int titleY = y;
                     
-                    // Disegna il rettangolo dietro al testo - ALLUNGATO verso il basso
                     int padding = 10;
                     int rectX = titleX - padding;
                     int rectY = titleY - titleHeight / 2 - padding / 2;
                     int rectWidth = titleWidth + (padding * 2);
-                    int rectHeight = titleHeight + padding + 6; // AGGIUNTO +6 per allungare verso il basso
+                    int rectHeight = titleHeight + padding + 6;
                     
-                    // Usa bianco o nero a seconda del colore del player
                     g2d.setColor(useWhiteBackground ? Color.WHITE : Color.BLACK);
                     g2d.fillRoundRect(rectX, rectY, rectWidth, rectHeight, 8, 8);
                     
-                    // Bordo sottile attorno al rettangolo
                     g2d.setColor(UIStyleUtils.GOLDEN_COLOR);
                     g2d.setStroke(new BasicStroke(1.0f));
                     g2d.drawRoundRect(rectX, rectY, rectWidth, rectHeight, 8, 8);
@@ -361,7 +243,6 @@ public class StatsPanel extends JPanel
                 
                 g2d.dispose();
                 
-                // Disegna il border normale sopra
                 super.paintBorder(c, g, x, y, width, height);
             }
         };
